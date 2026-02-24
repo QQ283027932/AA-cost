@@ -57,6 +57,7 @@ export default function DetailPage() {
   const [expenseDescription, setExpenseDescription] = useState('');
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [selectedPayerId, setSelectedPayerId] = useState<string | null>(null);
+  const [newParticipantNameInExpense, setNewParticipantNameInExpense] = useState('');
 
   const [participantModalVisible, setParticipantModalVisible] = useState(false);
   const [participantName, setParticipantName] = useState('');
@@ -168,7 +169,48 @@ export default function DetailPage() {
     if (activeParticipants.length > 0) {
       setSelectedPayerId(activeParticipants[0].id);
     }
+    setNewParticipantNameInExpense('');
     setExpenseModalVisible(true);
+  };
+
+  const handleAddParticipantInExpense = async () => {
+    if (!newParticipantNameInExpense.trim()) {
+      Alert.alert('提示', '请输入参与者姓名');
+      return;
+    }
+
+    try {
+      /**
+       * 服务端文件：server/src/routes/activities.ts
+       * 接口：POST /api/v1/activities/:id/participants
+       * Path 参数：id: string
+       * Body 参数：name: string
+       */
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/participants`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newParticipantNameInExpense.trim() }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // 刷新参与者列表
+        await fetchActivityDetail();
+        // 自动选中新添加的参与者
+        setSelectedParticipantIds(prev => [...prev, data.participant.id]);
+        setNewParticipantNameInExpense('');
+        Alert.alert('成功', `已添加参与者 ${data.participant.name}`);
+      } else {
+        Alert.alert('错误', data.error || '添加参与者失败');
+      }
+    } catch (error) {
+      console.error('Error adding participant:', error);
+      Alert.alert('错误', '添加参与者失败');
+    }
   };
 
   const handleDeleteExpense = (expenseId: string) => {
@@ -411,26 +453,6 @@ export default function DetailPage() {
           </View>
         </View>
 
-        <ThemedView
-          level="default"
-          style={[
-            styles.summaryCard,
-            {
-              backgroundColor: theme.primary,
-            },
-          ]}
-        >
-          <ThemedText variant="h3" color="#fff" style={styles.summaryTitle}>
-            每人应付
-          </ThemedText>
-          <ThemedText variant="h1" color="#fff" style={styles.amountPerPerson}>
-            ¥{amountPerPerson}
-          </ThemedText>
-          <ThemedText variant="caption" color="rgba(255,255,255,0.8)" style={styles.amountLabel}>
-            {totalAmount} ÷ {currentParticipantsCount}
-          </ThemedText>
-        </ThemedView>
-
         {/* 费用记录 */}
         <View style={{ marginBottom: Spacing.xl }}>
           <View style={styles.sectionHeader}>
@@ -623,7 +645,7 @@ export default function DetailPage() {
                     style={[
                       styles.participantTag,
                       {
-                        backgroundColor: selectedParticipantIds.includes(participant.id) 
+                        backgroundColor: selectedParticipantIds.includes(participant.id)
                           ? theme.primary + '20'
                           : 'transparent',
                         borderColor: selectedParticipantIds.includes(participant.id)
@@ -650,6 +672,30 @@ export default function DetailPage() {
                     </ThemedText>
                   </TouchableOpacity>
                 ))}
+              </View>
+
+              {/* 新建参与者 */}
+              <View style={styles.addParticipantRow}>
+                <TextInput
+                  style={[
+                    styles.newParticipantInput,
+                    {
+                      backgroundColor: theme.backgroundTertiary,
+                      borderColor: theme.borderLight,
+                      color: theme.textPrimary,
+                    },
+                  ]}
+                  placeholder="新参与者姓名"
+                  placeholderTextColor={theme.textMuted}
+                  value={newParticipantNameInExpense}
+                  onChangeText={setNewParticipantNameInExpense}
+                />
+                <TouchableOpacity
+                  style={[styles.addParticipantSmallButton, { backgroundColor: theme.primary }]}
+                  onPress={handleAddParticipantInExpense}
+                >
+                  <FontAwesome6 name="plus" size={16} color="#fff" />
+                </TouchableOpacity>
               </View>
 
               {/* 选择支付人 */}

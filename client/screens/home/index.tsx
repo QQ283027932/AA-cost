@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
+import { View, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Text } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
 
@@ -413,28 +413,51 @@ export default function HomePage() {
                             },
                           ]}
                         >
-                          <View style={styles.participantInfo}>
+                          <View style={styles.participantHeader}>
                             <ThemedText variant="body" color={theme.textPrimary} style={styles.participantName}>
                               {participant.name}
                               {participant.left_at && ' (已离开)'}
                             </ThemedText>
-                            <ThemedText 
-                              variant="caption" 
-                              color={getBalanceColor(participant.balance)} 
-                              style={styles.participantBalance}
-                            >
-                              {getBalanceText(participant.balance)}
-                            </ThemedText>
                           </View>
                           <View style={styles.participantActions}>
                             {!participant.left_at && (
-                              <TouchableOpacity onPress={() => handleLeaveParticipant(activity.id, participant.id)}>
+                              <TouchableOpacity
+                                onPress={() => handleLeaveParticipant(activity.id, participant.id)}
+                                style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                              >
                                 <FontAwesome6 name="right-from-bracket" size={16} color="#F59E0B" />
                               </TouchableOpacity>
                             )}
-                            <TouchableOpacity onPress={() => handleDeleteParticipant(activity.id, participant.id)}>
+                            <TouchableOpacity
+                              onPress={() => handleDeleteParticipant(activity.id, participant.id)}
+                              style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                            >
                               <FontAwesome6 name="trash" size={16} color={theme.error} />
                             </TouchableOpacity>
+                          </View>
+                          <View style={[styles.participantDetails, { borderTopColor: theme.borderLight }]}>
+                            <View style={styles.participantDetailItem}>
+                              <Text style={styles.participantDetailLabel}>分摊金额</Text>
+                              <Text style={styles.participantDetailValue}>¥{participant.shareTotal}</Text>
+                            </View>
+                            <View style={styles.participantDetailItem}>
+                              <Text style={styles.participantDetailLabel}>支付总额</Text>
+                              <Text style={styles.participantDetailValue}>¥{participant.paidTotal}</Text>
+                            </View>
+                            <View style={styles.participantDetailItem}>
+                              <Text style={styles.participantDetailLabel}>结余</Text>
+                              <Text
+                                style={[
+                                  styles.participantDetailValue,
+                                  participant.balance > 0 ? styles.positiveBalance :
+                                  participant.balance < 0 ? styles.negativeBalance :
+                                  styles.neutralBalance
+                                ]}
+                              >
+                                {participant.balance > 0 ? `¥${participant.balance}` :
+                                 participant.balance < 0 ? `-¥${Math.abs(participant.balance)}` : '¥0'}
+                              </Text>
+                            </View>
                           </View>
                         </ThemedView>
                       ))

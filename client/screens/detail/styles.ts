@@ -191,6 +191,7 @@ export const createStyles = (theme: Theme) => {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: Spacing.sm,
+      marginBottom: Spacing.md,
     },
     participantTag: {
       paddingHorizontal: Spacing.md,
@@ -206,6 +207,28 @@ export const createStyles = (theme: Theme) => {
     },
     participantTagRemove: {
       fontSize: 14,
+    },
+    addParticipantRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+      alignItems: 'center',
+      marginBottom: Spacing.lg,
+    },
+    newParticipantInput: {
+      flex: 1,
+      backgroundColor: '#f5f5f5',
+      borderRadius: 8,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+      fontSize: 14,
+    },
+    addParticipantSmallButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     payerButtons: {
       flexDirection: 'row',

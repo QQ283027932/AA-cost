@@ -96,27 +96,49 @@ export const createStyles = (theme: Theme) => {
       fontSize: 12,
     },
     participantItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
       paddingVertical: Spacing.sm,
       paddingHorizontal: Spacing.sm,
       marginBottom: Spacing.xs,
       borderRadius: BorderRadius.sm,
     },
-    participantInfo: {
-      flex: 1,
+    participantHeader: {
+      marginBottom: Spacing.xs,
     },
     participantName: {
       fontSize: 14,
-      marginBottom: 2,
-    },
-    participantBalance: {
-      fontSize: 12,
     },
     participantActions: {
       flexDirection: 'row',
+      justifyContent: 'flex-end',
       gap: Spacing.xs,
+      marginTop: Spacing.sm,
+    },
+    participantDetails: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingTop: Spacing.xs,
+      borderTopWidth: 1,
+    },
+    participantDetailItem: {
+      flex: 1,
+    },
+    participantDetailLabel: {
+      fontSize: 10,
+      color: '#999',
+      marginBottom: 2,
+    },
+    participantDetailValue: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    positiveBalance: {
+      color: '#EF4444',
+    },
+    negativeBalance: {
+      color: '#10B981',
+    },
+    neutralBalance: {
+      color: '#6B7280',
     },
     emptyContainer: {
       flex: 1,
