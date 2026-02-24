@@ -11,11 +11,22 @@ import { ThemedView } from '@/components/ThemedView';
 import { Spacing } from '@/constants/theme';
 import { createStyles } from './styles';
 
+interface Participant {
+  id: string;
+  name: string;
+  joined_at: string;
+  left_at: string | null;
+  shareTotal: number;
+  paidTotal: number;
+  advancePayment: number;
+  payableAmount: number;
+  balance: number;
+}
+
 interface Activity {
   id: string;
   title: string;
-  total_amount: number;
-  created_at: string;
+  totalAmount: number;
   participantsCount: number;
 }
 
@@ -25,9 +36,13 @@ export default function HomePage() {
   const styles = React.useMemo(() => createStyles(theme), [theme]);
 
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [participantsMap, setParticipantsMap] = useState<Record<string, Participant[]>>({});
+  const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const [participantName, setParticipantName] = useState('');
 
   const fetchActivities = useCallback(async () => {
     try {
@@ -52,11 +67,49 @@ export default function HomePage() {
     }
   }, []);
 
+  const fetchParticipants = useCallback(async (activityId: string) => {
+    try {
+      /**
+       * 服务端文件：server/src/routes/activities.ts
+       * 接口：GET /api/v1/activities/:id
+       * Path 参数：id: string
+       */
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${activityId}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setParticipantsMap(prev => ({
+          ...prev,
+          [activityId]: data.participants || [],
+        }));
+      } else {
+        console.error('Failed to fetch participants:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching participants:', error);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       fetchActivities();
     }, [fetchActivities])
   );
+
+  const toggleExpand = (activityId: string) => {
+    setExpandedActivities(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(activityId)) {
+        newSet.delete(activityId);
+      } else {
+        newSet.add(activityId);
+        if (!participantsMap[activityId]) {
+          fetchParticipants(activityId);
+        }
+      }
+      return newSet;
+    });
+  };
 
   const handleCreateActivity = async () => {
     if (!title.trim()) {
@@ -84,6 +137,9 @@ export default function HomePage() {
         setModalVisible(false);
         setTitle('');
         fetchActivities();
+        // 创建活动后立即打开添加参与者 Modal
+        setSelectedActivityId(data.activity.id);
+        setParticipantModalVisible(true);
       } else {
         Alert.alert('错误', data.error || '创建活动失败');
       }
@@ -93,10 +149,55 @@ export default function HomePage() {
     }
   };
 
-  const handleDeleteActivity = (id: string) => {
+  const [participantModalVisible, setParticipantModalVisible] = useState(false);
+
+  const handleAddParticipant = async () => {
+    if (!participantName.trim()) {
+      Alert.alert('提示', '请输入参与者姓名');
+      return;
+    }
+    if (!selectedActivityId) {
+      Alert.alert('错误', '活动ID不存在');
+      return;
+    }
+
+    try {
+      /**
+       * 服务端文件：server/src/routes/activities.ts
+       * 接口：POST /api/v1/activities/:id/participants
+       * Path 参数：id: string
+       * Body 参数：name: string
+       */
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${selectedActivityId}/participants`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: participantName.trim() }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setParticipantModalVisible(false);
+        setParticipantName('');
+        setSelectedActivityId(null);
+        fetchParticipants(selectedActivityId);
+        fetchActivities();
+      } else {
+        Alert.alert('错误', data.error || '添加参与者失败');
+      }
+    } catch (error) {
+      console.error('Error adding participant:', error);
+      Alert.alert('错误', '添加参与者失败');
+    }
+  };
+
+  const handleDeleteParticipant = (activityId: string, participantId: string) => {
     Alert.alert(
       '确认删除',
-      '确定要删除这个活动吗？',
+      '确定要删除这位参与者吗？',
       [
         { text: '取消', style: 'cancel' },
         {
@@ -106,22 +207,67 @@ export default function HomePage() {
             try {
               /**
                * 服务端文件：server/src/routes/activities.ts
-               * 接口：DELETE /api/v1/activities/:id
-               * Path 参数：id: string
+               * 接口：DELETE /api/v1/activities/:id/participants/:participantId
+               * Path 参数：id: string, participantId: string
                */
               const response = await fetch(
-                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${id}`,
+                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${activityId}/participants/${participantId}`,
                 { method: 'DELETE' }
               );
 
               if (response.ok) {
+                fetchParticipants(activityId);
                 fetchActivities();
               } else {
                 Alert.alert('错误', '删除失败');
               }
             } catch (error) {
-              console.error('Error deleting activity:', error);
+              console.error('Error deleting participant:', error);
               Alert.alert('错误', '删除失败');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleLeaveParticipant = (activityId: string, participantId: string) => {
+    Alert.alert(
+      '确认离开',
+      '确定要标记这位参与者已经离开吗？',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '确定',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              /**
+               * 服务端文件：server/src/routes/activities.ts
+               * 接口：PATCH /api/v1/activities/:id/participants/:participantId
+               * Path 参数：id: string, participantId: string
+               * Body 参数：leftAt: string
+               */
+              const response = await fetch(
+                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${activityId}/participants/${participantId}`,
+                {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    leftAt: new Date().toISOString(),
+                  }),
+                }
+              );
+
+              if (response.ok) {
+                fetchParticipants(activityId);
+                fetchActivities();
+              } else {
+                Alert.alert('错误', '操作失败');
+              }
+            } catch (error) {
+              console.error('Error updating participant:', error);
+              Alert.alert('错误', '操作失败');
             }
           },
         },
@@ -138,6 +284,22 @@ export default function HomePage() {
     });
   };
 
+  const getBalanceText = (balance: number) => {
+    if (balance > 0) {
+      return `需支付 ¥${balance}`;
+    } else if (balance < 0) {
+      return `需退费 ¥${Math.abs(balance)}`;
+    } else {
+      return '已结清';
+    }
+  };
+
+  const getBalanceColor = (balance: number) => {
+    if (balance > 0) return theme.textPrimary;
+    if (balance < 0) return theme.success;
+    return theme.textSecondary;
+  };
+
   return (
     <Screen backgroundColor={theme.backgroundRoot} statusBarStyle={isDark ? 'light' : 'dark'}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -146,7 +308,7 @@ export default function HomePage() {
             AA 费用分摊
           </ThemedText>
           <ThemedText variant="body" color={theme.textSecondary} style={styles.headerDescription}>
-            轻松管理活动费用，自动计算每人应付金额
+            精确管理每笔费用，自动计算分摊金额
           </ThemedText>
         </ThemedView>
 
@@ -161,66 +323,127 @@ export default function HomePage() {
             </ThemedText>
           </View>
         ) : (
-          activities.map((activity) => (
-            <ThemedView
-              key={activity.id}
-              level="default"
-              style={[
-                styles.card,
-                {
-                  backgroundColor: theme.backgroundDefault,
-                  borderColor: theme.border,
-                },
-              ]}
-            >
-              <View style={styles.cardHeader}>
-                <View style={styles.cardTitle}>
-                  <ThemedText variant="h3" color={theme.textPrimary} numberOfLines={1}>
-                    {activity.title}
-                  </ThemedText>
-                </View>
-                <TouchableOpacity onPress={() => handleDeleteActivity(activity.id)}>
-                  <FontAwesome6 name="trash" size={20} color={theme.error} />
-                </TouchableOpacity>
-              </View>
+          activities.map((activity) => {
+            const isExpanded = expandedActivities.has(activity.id);
+            const participants = participantsMap[activity.id] || [];
 
-              <View style={styles.cardMeta}>
-                <View style={styles.cardMetaItem}>
-                  <FontAwesome6 name="coins" size={14} color={theme.primary} style={styles.cardMetaIcon} />
-                  <ThemedText variant="caption" color={theme.textSecondary} style={styles.cardMetaText}>
-                    总计 ¥{activity.total_amount}
-                  </ThemedText>
-                </View>
-                <View style={styles.cardMetaItem}>
-                  <FontAwesome6 name="users" size={14} color={theme.primary} style={styles.cardMetaIcon} />
-                  <ThemedText variant="caption" color={theme.textSecondary} style={styles.cardMetaText}>
-                    {activity.participantsCount} 人
-                  </ThemedText>
-                </View>
-                <View style={styles.cardMetaItem}>
-                  <FontAwesome6 name="calendar" size={14} color={theme.primary} style={styles.cardMetaIcon} />
-                  <ThemedText variant="caption" color={theme.textSecondary} style={styles.cardMetaText}>
-                    {formatDate(activity.created_at)}
-                  </ThemedText>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={{
-                  marginTop: Spacing.md,
-                  paddingVertical: Spacing.sm,
-                  backgroundColor: theme.primary,
-                  borderRadius: 8,
-                  alignItems: 'center',
-                }}
-                onPress={() => router.push(`/detail`, { id: activity.id })}
+            return (
+              <ThemedView
+                key={activity.id}
+                level="default"
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: theme.backgroundDefault,
+                    borderColor: theme.border,
+                  },
+                ]}
               >
-                <ThemedText variant="smallMedium" color={theme.buttonPrimaryText}>
-                  查看详情
-                </ThemedText>
-              </TouchableOpacity>
-            </ThemedView>
-          ))
+                <View style={styles.cardHeader}>
+                  <TouchableOpacity style={styles.cardTitle} onPress={() => toggleExpand(activity.id)}>
+                    <ThemedText variant="h3" color={theme.textPrimary}>
+                      {activity.title}
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <View style={styles.cardActions}>
+                    <TouchableOpacity onPress={() => router.push(`/detail`, { id: activity.id })}>
+                      <FontAwesome6 name="pen-to-square" size={20} color={theme.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteActivity(activity.id)}>
+                      <FontAwesome6 name="trash" size={20} color={theme.error} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.cardMeta}>
+                  <View style={styles.cardMetaItem}>
+                    <FontAwesome6 name="coins" size={14} color={theme.primary} style={styles.cardMetaIcon} />
+                    <ThemedText variant="caption" color={theme.textSecondary} style={styles.cardMetaText}>
+                      总支出 ¥{activity.totalAmount}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.cardMetaItem}>
+                    <FontAwesome6 name="users" size={14} color={theme.primary} style={styles.cardMetaIcon} />
+                    <ThemedText variant="caption" color={theme.textSecondary} style={styles.cardMetaText}>
+                      {activity.participantsCount} 人
+                    </ThemedText>
+                  </View>
+                  <TouchableOpacity onPress={() => toggleExpand(activity.id)}>
+                    <FontAwesome6 
+                      name={isExpanded ? "chevron-up" : "chevron-down"} 
+                      size={14} 
+                      color={theme.textSecondary} 
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {isExpanded && (
+                  <View style={[styles.participantsSection, { borderTopColor: theme.borderLight }]}>
+                    <View style={styles.participantsHeader}>
+                      <ThemedText variant="body" color={theme.textPrimary} style={styles.participantsTitle}>
+                        参与者
+                      </ThemedText>
+                      <TouchableOpacity 
+                        style={styles.addParticipantButton}
+                        onPress={() => {
+                          setSelectedActivityId(activity.id);
+                          setParticipantModalVisible(true);
+                        }}
+                      >
+                        <FontAwesome6 name="plus" size={12} color={theme.primary} />
+                        <ThemedText style={[styles.addParticipantButtonText, { color: theme.primary }]}>
+                          添加
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+
+                    {participants.length === 0 ? (
+                      <ThemedText variant="caption" color={theme.textMuted}>
+                        暂无参与者
+                      </ThemedText>
+                    ) : (
+                      participants.map((participant) => (
+                        <ThemedView
+                          key={participant.id}
+                          level="tertiary"
+                          style={[
+                            styles.participantItem,
+                            {
+                              backgroundColor: theme.backgroundTertiary,
+                            },
+                          ]}
+                        >
+                          <View style={styles.participantInfo}>
+                            <ThemedText variant="body" color={theme.textPrimary} style={styles.participantName}>
+                              {participant.name}
+                              {participant.left_at && ' (已离开)'}
+                            </ThemedText>
+                            <ThemedText 
+                              variant="caption" 
+                              color={getBalanceColor(participant.balance)} 
+                              style={styles.participantBalance}
+                            >
+                              {getBalanceText(participant.balance)}
+                            </ThemedText>
+                          </View>
+                          <View style={styles.participantActions}>
+                            {!participant.left_at && (
+                              <TouchableOpacity onPress={() => handleLeaveParticipant(activity.id, participant.id)}>
+                                <FontAwesome6 name="right-from-bracket" size={16} color="#F59E0B" />
+                              </TouchableOpacity>
+                            )}
+                            <TouchableOpacity onPress={() => handleDeleteParticipant(activity.id, participant.id)}>
+                              <FontAwesome6 name="trash" size={16} color={theme.error} />
+                            </TouchableOpacity>
+                          </View>
+                        </ThemedView>
+                      ))
+                    )}
+                  </View>
+                )}
+              </ThemedView>
+            );
+          })
         )}
       </ScrollView>
 
@@ -233,6 +456,7 @@ export default function HomePage() {
         </ThemedText>
       </TouchableOpacity>
 
+      {/* 创建活动 Modal */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View
           style={{
@@ -242,68 +466,121 @@ export default function HomePage() {
           }}
         >
           <View
-            style={{
-              backgroundColor: theme.backgroundDefault,
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              padding: Spacing.xl,
-            }}
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: theme.backgroundDefault,
+              },
+            ]}
           >
-            <ThemedText variant="h3" color={theme.textPrimary} style={{ marginBottom: Spacing.xl }}>
+            <ThemedText variant="h3" color={theme.textPrimary} style={styles.modalTitle}>
               创建新活动
             </ThemedText>
 
-            <ThemedText variant="body" color={theme.textSecondary} style={{ marginBottom: Spacing.sm }}>
+            <ThemedText variant="body" color={theme.textSecondary} style={styles.inputLabel}>
               活动名称
             </ThemedText>
             <TextInput
-              style={{
-                backgroundColor: theme.backgroundTertiary,
-                borderRadius: 8,
-                padding: Spacing.md,
-                marginBottom: Spacing["2xl"],
-                color: theme.textPrimary,
-                borderWidth: 1,
-                borderColor: theme.borderLight,
-              }}
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: theme.backgroundTertiary,
+                  borderColor: theme.borderLight,
+                  color: theme.textPrimary,
+                },
+              ]}
               placeholder="例如：周末聚餐"
               placeholderTextColor={theme.textMuted}
               value={title}
               onChangeText={setTitle}
             />
 
-            <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+            <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: Spacing.md,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                  alignItems: 'center',
-                }}
+                style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => {
                   setModalVisible(false);
                   setTitle('');
                 }}
               >
-                <ThemedText variant="body" color={theme.textSecondary}>
+                <ThemedText variant="body" style={[styles.cancelButtonText, { color: theme.textSecondary }]}>
                   取消
                 </ThemedText>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: Spacing.md,
-                  borderRadius: 8,
-                  backgroundColor: theme.primary,
-                  alignItems: 'center',
-                }}
+                style={[styles.modalButton, styles.submitButton, { backgroundColor: theme.primary }]}
                 onPress={handleCreateActivity}
               >
-                <ThemedText variant="body" color={theme.buttonPrimaryText}>
+                <ThemedText variant="body" style={[styles.submitButtonText, { color: theme.buttonPrimaryText }]}>
                   创建
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 添加参与者 Modal */}
+      <Modal visible={participantModalVisible} transparent animationType="slide">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: theme.backgroundDefault,
+              },
+            ]}
+          >
+            <ThemedText variant="h3" color={theme.textPrimary} style={styles.modalTitle}>
+              添加参与者
+            </ThemedText>
+
+            <ThemedText variant="body" color={theme.textSecondary} style={styles.inputLabel}>
+              姓名
+            </ThemedText>
+            <TextInput
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: theme.backgroundTertiary,
+                  borderColor: theme.borderLight,
+                  color: theme.textPrimary,
+                },
+              ]}
+              placeholder="请输入参与者姓名"
+              placeholderTextColor={theme.textMuted}
+              value={participantName}
+              onChangeText={setParticipantName}
+              autoFocus
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setParticipantModalVisible(false);
+                  setParticipantName('');
+                  setSelectedActivityId(null);
+                }}
+              >
+                <ThemedText variant="body" style={[styles.cancelButtonText, { color: theme.textSecondary }]}>
+                  取消
+                </ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton, { backgroundColor: theme.primary }]}
+                onPress={handleAddParticipant}
+              >
+                <ThemedText variant="body" style={[styles.submitButtonText, { color: theme.buttonPrimaryText }]}>
+                  确定
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -312,4 +589,35 @@ export default function HomePage() {
       </Modal>
     </Screen>
   );
+
+  function handleDeleteActivity(activityId: string) {
+    Alert.alert(
+      '确认删除',
+      '确定要删除这个活动吗？',
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(
+                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${activityId}`,
+                { method: 'DELETE' }
+              );
+
+              if (response.ok) {
+                fetchActivities();
+              } else {
+                Alert.alert('错误', '删除失败');
+              }
+            } catch (error) {
+              console.error('Error deleting activity:', error);
+              Alert.alert('错误', '删除失败');
+            }
+          },
+        },
+      ]
+    );
+  }
 }

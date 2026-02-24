@@ -95,25 +95,65 @@ router.get('/:id', async (req, res) => {
       return res.status(500).json({ error: 'Failed to fetch participants' });
     }
 
+    // 获取费用分摊关系
+    const expenseIds = expenses?.map((e: any) => e.id) || [];
+    const { data: expenseParticipants } = await client
+      .from('expense_participants')
+      .select('*')
+      .in('expense_id', expenseIds);
+
     // 计算总花费金额
     const totalAmount = expenses?.reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
 
     // 计算当前参与人数（未离开的）
     const currentParticipants = participants?.filter((p: any) => !p.left_at) || [];
-    const participantsCount = currentParticipants.length;
+    const currentParticipantsCount = currentParticipants.length;
 
-    // 计算每人应付金额
-    const amountPerPerson = participantsCount > 0
-      ? totalAmount / participantsCount
-      : 0;
+    // 计算每个参与者的费用信息
+    const participantsWithBalance = participants?.map((participant: any) => {
+      // 获取该参与者参与的费用的分摊关系
+      const participantExpenseRelations = expenseParticipants?.filter((ep: any) => ep.participant_id === participant.id) || [];
+      const participantExpenseIds = participantExpenseRelations.map((ep: any) => ep.expense_id);
+
+      // 获取这些费用的详细信息
+      const participantExpenses = expenses?.filter((e: any) => participantExpenseIds.includes(e.id)) || [];
+
+      // 计算分摊总额（平均分摊）
+      const shareTotal = participantExpenses.reduce((sum: number, e: any) => {
+        // 获取这笔费用有多少人分摊
+        const expenseParticipantCount = expenseParticipants?.filter((ep: any) => ep.expense_id === e.id).length || 1;
+        return sum + Math.floor(e.amount / expenseParticipantCount);
+      }, 0);
+
+      // 计算支付总额（该参与者作为支付人的费用）
+      const paidTotal = expenses?.filter((e: any) => e.payer_id === participant.id).reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
+
+      // 提前支付金额
+      const advancePayment = participant.advance_payment || 0;
+
+      // 应付金额（分摊总额 - 提前支付金额）
+      const payableAmount = shareTotal - advancePayment;
+
+      // 需支付/退费金额（应付金额 - 已付金额）
+      const balance = payableAmount - paidTotal;
+
+      return {
+        ...participant,
+        shareTotal,
+        paidTotal,
+        advancePayment,
+        payableAmount,
+        balance,
+      };
+    }) || [];
 
     res.json({
       activity,
       expenses: expenses || [],
-      participants: participants || [],
+      participants: participantsWithBalance,
       totalAmount,
-      currentParticipantsCount: participantsCount,
-      amountPerPerson: Number(amountPerPerson.toFixed(2)),
+      currentParticipantsCount,
+      expenseParticipants: expenseParticipants || [],
     });
   } catch (error) {
     console.error('Server error:', error);
@@ -157,10 +197,16 @@ router.post('/', async (req, res) => {
 router.post('/:id/expenses', async (req, res) => {
   try {
     const { id } = req.params;
-    const { amount, description, expenseDate } = req.body;
+    const { amount, description, expenseDate, payerId, participantIds } = req.body;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Amount is required and must be greater than 0' });
+    }
+    if (!payerId) {
+      return res.status(400).json({ error: 'PayerId is required' });
+    }
+    if (!participantIds || participantIds.length === 0) {
+      return res.status(400).json({ error: 'ParticipantIds is required' });
     }
 
     const client = getSupabaseClient();
@@ -177,10 +223,11 @@ router.post('/:id/expenses', async (req, res) => {
     }
 
     // 添加费用记录
-    const { data, error } = await client
+    const { data: expense, error: expenseError } = await client
       .from('expenses')
       .insert({
         activity_id: id,
+        payer_id: payerId,
         amount: parseInt(amount),
         description: description || '',
         expense_date: expenseDate || new Date().toISOString(),
@@ -188,12 +235,29 @@ router.post('/:id/expenses', async (req, res) => {
       .select()
       .single();
 
-    if (error) {
-      console.error('Error adding expense:', error);
+    if (expenseError) {
+      console.error('Error adding expense:', expenseError);
       return res.status(500).json({ error: 'Failed to add expense' });
     }
 
-    res.status(201).json({ expense: data });
+    // 添加费用分摊关系
+    const participantRelations = participantIds.map((participantId: string) => ({
+      expense_id: expense.id,
+      participant_id: participantId,
+    }));
+
+    const { error: relationError } = await client
+      .from('expense_participants')
+      .insert(participantRelations);
+
+    if (relationError) {
+      console.error('Error adding expense participants:', relationError);
+      // 回滚费用记录
+      await client.from('expenses').delete().eq('id', expense.id);
+      return res.status(500).json({ error: 'Failed to add expense participants' });
+    }
+
+    res.status(201).json({ expense });
   } catch (error) {
     console.error('Server error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -206,6 +270,13 @@ router.delete('/:id/expenses/:expenseId', async (req, res) => {
     const { id, expenseId } = req.params;
     const client = getSupabaseClient();
 
+    // 先删除费用分摊关系
+    await client
+      .from('expense_participants')
+      .delete()
+      .eq('expense_id', expenseId);
+
+    // 删除费用记录
     const { error } = await client
       .from('expenses')
       .delete()
@@ -228,7 +299,7 @@ router.delete('/:id/expenses/:expenseId', async (req, res) => {
 router.post('/:id/participants', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, joinedAt } = req.body;
+    const { name, joinedAt, advancePayment } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
@@ -254,6 +325,7 @@ router.post('/:id/participants', async (req, res) => {
         activity_id: id,
         name,
         joined_at: joinedAt || new Date().toISOString(),
+        advance_payment: advancePayment || 0,
       })
       .select()
       .single();
@@ -270,19 +342,25 @@ router.post('/:id/participants', async (req, res) => {
   }
 });
 
-// PATCH /api/v1/activities/:id/participants/:participantId - 更新参与者状态（标记离开）
+// PATCH /api/v1/activities/:id/participants/:participantId - 更新参与者
 router.patch('/:id/participants/:participantId', async (req, res) => {
   try {
     const { id, participantId } = req.params;
-    const { leftAt } = req.body;
+    const { leftAt, advancePayment } = req.body;
 
     const client = getSupabaseClient();
 
+    const updateData: any = {};
+    if (leftAt !== undefined) {
+      updateData.left_at = leftAt;
+    }
+    if (advancePayment !== undefined) {
+      updateData.advance_payment = parseInt(advancePayment);
+    }
+
     const { data, error } = await client
       .from('participants')
-      .update({
-        left_at: leftAt || new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', participantId)
       .eq('activity_id', id)
       .select()
@@ -334,7 +412,13 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const client = getSupabaseClient();
 
-    // 先删除所有费用记录
+    // 先删除所有费用分摊关系
+    await client
+      .from('expense_participants')
+      .delete()
+      .in('expense_id', (await client.from('expenses').select('id').eq('activity_id', id)).data?.map((e: any) => e.id) || []);
+
+    // 删除所有费用记录
     await client
       .from('expenses')
       .delete()

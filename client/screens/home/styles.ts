@@ -47,17 +47,21 @@ export const createStyles = (theme: Theme) => {
     cardHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       marginBottom: Spacing.md,
     },
     cardTitle: {
       flex: 1,
-      marginRight: Spacing.sm,
+    },
+    cardActions: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
     },
     cardMeta: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: Spacing.md,
+      marginBottom: Spacing.md,
     },
     cardMetaItem: {
       flexDirection: 'row',
@@ -69,6 +73,50 @@ export const createStyles = (theme: Theme) => {
     },
     cardMetaText: {
       fontSize: 12,
+    },
+    participantsSection: {
+      paddingTop: Spacing.md,
+      borderTopWidth: 1,
+    },
+    participantsHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: Spacing.sm,
+    },
+    participantsTitle: {
+      fontSize: 14,
+    },
+    addParticipantButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.xs,
+    },
+    addParticipantButtonText: {
+      fontSize: 12,
+    },
+    participantItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: Spacing.sm,
+      paddingHorizontal: Spacing.sm,
+      marginBottom: Spacing.xs,
+      borderRadius: BorderRadius.sm,
+    },
+    participantInfo: {
+      flex: 1,
+    },
+    participantName: {
+      fontSize: 14,
+      marginBottom: 2,
+    },
+    participantBalance: {
+      fontSize: 12,
+    },
+    participantActions: {
+      flexDirection: 'row',
+      gap: Spacing.xs,
     },
     emptyContainer: {
       flex: 1,
@@ -86,6 +134,54 @@ export const createStyles = (theme: Theme) => {
     },
     emptyDescription: {
       textAlign: 'center',
+    },
+    modalContainer: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: '#fff',
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      padding: Spacing.xl,
+    },
+    modalTitle: {
+      marginBottom: Spacing.xl,
+    },
+    inputLabel: {
+      marginBottom: Spacing.sm,
+    },
+    textInput: {
+      backgroundColor: '#f5f5f5',
+      borderRadius: 8,
+      padding: Spacing.md,
+      marginBottom: Spacing.lg,
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+    },
+    modalButton: {
+      flex: 1,
+      paddingVertical: Spacing.md,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    cancelButton: {
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+    },
+    cancelButtonText: {
+      color: '#666',
+    },
+    submitButton: {
+      backgroundColor: '#4F46E5',
+    },
+    submitButtonText: {
+      color: '#fff',
     },
   });
 };

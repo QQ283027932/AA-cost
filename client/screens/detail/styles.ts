@@ -159,6 +159,7 @@ export const createStyles = (theme: Theme) => {
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       padding: Spacing.xl,
+      maxHeight: '90%',
     },
     modalTitle: {
       marginBottom: Spacing.xl,
@@ -174,9 +175,58 @@ export const createStyles = (theme: Theme) => {
       borderWidth: 1,
       borderColor: '#e0e0e0',
     },
+    selectorLabel: {
+      marginBottom: Spacing.sm,
+      fontSize: 14,
+    },
+    selectorContainer: {
+      marginBottom: Spacing.md,
+    },
+    selectorTitle: {
+      marginBottom: Spacing.sm,
+      fontSize: 14,
+      fontWeight: 'bold',
+    },
+    participantTags: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+    },
+    participantTag: {
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      borderRadius: 20,
+      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.xs,
+    },
+    participantTagText: {
+      fontSize: 14,
+    },
+    participantTagRemove: {
+      fontSize: 14,
+    },
+    payerButtons: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+    },
+    payerButton: {
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      borderRadius: 8,
+      borderWidth: 1,
+      minWidth: 80,
+      alignItems: 'center',
+    },
+    payerButtonText: {
+      fontSize: 14,
+    },
     modalButtons: {
       flexDirection: 'row',
       gap: Spacing.md,
+      marginTop: Spacing.lg,
     },
     modalButton: {
       flex: 1,

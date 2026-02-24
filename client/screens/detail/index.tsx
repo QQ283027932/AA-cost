@@ -18,6 +18,7 @@ interface Participant {
   name: string;
   joined_at: string;
   left_at: string | null;
+  advance_payment: number;
 }
 
 interface Expense {
@@ -26,6 +27,8 @@ interface Expense {
   amount: number;
   description: string;
   expense_date: string;
+  payer_id: string | null;
+  payer_name: string | null;
 }
 
 interface ActivityDetail {
@@ -52,9 +55,15 @@ export default function DetailPage() {
   const [expenseModalVisible, setExpenseModalVisible] = useState(false);
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseDescription, setExpenseDescription] = useState('');
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
+  const [selectedPayerId, setSelectedPayerId] = useState<string | null>(null);
 
   const [participantModalVisible, setParticipantModalVisible] = useState(false);
   const [participantName, setParticipantName] = useState('');
+
+  const [advancePaymentModalVisible, setAdvancePaymentModalVisible] = useState(false);
+  const [selectedParticipantForAdvance, setSelectedParticipantForAdvance] = useState<Participant | null>(null);
+  const [advancePaymentAmount, setAdvancePaymentAmount] = useState('');
 
   const fetchActivityDetail = useCallback(async () => {
     if (!params.id) return;
@@ -103,13 +112,21 @@ export default function DetailPage() {
       Alert.alert('提示', '请输入有效的金额');
       return;
     }
+    if (selectedParticipantIds.length === 0) {
+      Alert.alert('提示', '请至少选择一个分摊人');
+      return;
+    }
+    if (!selectedPayerId) {
+      Alert.alert('提示', '请选择支付人');
+      return;
+    }
 
     try {
       /**
        * 服务端文件：server/src/routes/activities.ts
        * 接口：POST /api/v1/activities/:id/expenses
        * Path 参数：id: string
-       * Body 参数：amount: number, description: string
+       * Body 参数：amount: number, description: string, payerId: string, participantIds: string[]
        */
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/expenses`,
@@ -119,6 +136,8 @@ export default function DetailPage() {
           body: JSON.stringify({
             amount: Number(expenseAmount),
             description: expenseDescription.trim(),
+            payerId: selectedPayerId,
+            participantIds: selectedParticipantIds,
           }),
         }
       );
@@ -129,6 +148,8 @@ export default function DetailPage() {
         setExpenseModalVisible(false);
         setExpenseAmount('');
         setExpenseDescription('');
+        setSelectedParticipantIds([]);
+        setSelectedPayerId(null);
         fetchActivityDetail();
       } else {
         Alert.alert('错误', data.error || '添加费用失败');
@@ -137,6 +158,17 @@ export default function DetailPage() {
       console.error('Error adding expense:', error);
       Alert.alert('错误', '添加费用失败');
     }
+  };
+
+  const openExpenseModal = () => {
+    // 默认选中所有未离开的参与者
+    const activeParticipants = participants.filter(p => !p.left_at);
+    setSelectedParticipantIds(activeParticipants.map(p => p.id));
+    // 默认支付人为第一个未离开的参与者
+    if (activeParticipants.length > 0) {
+      setSelectedPayerId(activeParticipants[0].id);
+    }
+    setExpenseModalVisible(true);
   };
 
   const handleDeleteExpense = (expenseId: string) => {
@@ -209,6 +241,41 @@ export default function DetailPage() {
     } catch (error) {
       console.error('Error adding participant:', error);
       Alert.alert('错误', '添加参与者失败');
+    }
+  };
+
+  const handleUpdateAdvancePayment = async () => {
+    if (!selectedParticipantForAdvance) return;
+
+    try {
+      /**
+       * 服务端文件：server/src/routes/activities.ts
+       * 接口：PATCH /api/v1/activities/:id/participants/:participantId
+       * Path 参数：id: string, participantId: string
+       * Body 参数：advancePayment: number
+       */
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/participants/${selectedParticipantForAdvance.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            advancePayment: advancePaymentAmount.trim() ? Number(advancePaymentAmount) : 0,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        setAdvancePaymentModalVisible(false);
+        setAdvancePaymentAmount('');
+        setSelectedParticipantForAdvance(null);
+        fetchActivityDetail();
+      } else {
+        Alert.alert('错误', '更新失败');
+      }
+    } catch (error) {
+      console.error('Error updating advance payment:', error);
+      Alert.alert('错误', '更新失败');
     }
   };
 
@@ -370,7 +437,7 @@ export default function DetailPage() {
             <ThemedText variant="h3" color={theme.textPrimary} style={styles.sectionTitle}>
               费用记录
             </ThemedText>
-            <TouchableOpacity style={styles.addButton} onPress={() => setExpenseModalVisible(true)}>
+            <TouchableOpacity style={styles.addButton} onPress={openExpenseModal}>
               <FontAwesome6 name="plus" size={16} color={theme.primary} />
               <ThemedText style={[styles.addButtonText, { color: theme.primary }]}>添加</ThemedText>
             </TouchableOpacity>
@@ -400,14 +467,15 @@ export default function DetailPage() {
                   </ThemedText>
                   <ThemedText variant="caption" color={theme.textMuted} style={styles.expenseDate}>
                     {formatTime(expense.expense_date)}
+                    {expense.payer_name && ` · ${expense.payer_name}支付`}
                   </ThemedText>
                 </View>
-                <View style={styles.expenseActions}>
+                <View style={{ alignItems: 'flex-end', gap: Spacing.xs }}>
                   <ThemedText variant="h3" color={theme.primary} style={styles.expenseAmount}>
                     ¥{expense.amount}
                   </ThemedText>
-                  <TouchableOpacity onPress={() => handleDeleteExpense(expense.id)} style={{ marginLeft: Spacing.sm }}>
-                    <FontAwesome6 name="trash" size={16} color={theme.error} />
+                  <TouchableOpacity onPress={() => handleDeleteExpense(expense.id)}>
+                    <FontAwesome6 name="trash" size={14} color={theme.error} />
                   </TouchableOpacity>
                 </View>
               </ThemedView>
@@ -415,8 +483,8 @@ export default function DetailPage() {
           )}
         </View>
 
-        {/* 参与者 */}
-        <View>
+        {/* 参与者管理 */}
+        <View style={{ marginBottom: Spacing.xl }}>
           <View style={styles.sectionHeader}>
             <ThemedText variant="h3" color={theme.textPrimary} style={styles.sectionTitle}>
               参与者
@@ -442,7 +510,6 @@ export default function DetailPage() {
                   styles.participantItem,
                   {
                     backgroundColor: theme.backgroundDefault,
-                    opacity: participant.left_at ? 0.6 : 1,
                   },
                 ]}
               >
@@ -459,9 +526,21 @@ export default function DetailPage() {
                       加入：{formatTime(participant.joined_at)}
                       {participant.left_at && ` | 离开：${formatTime(participant.left_at)}`}
                     </ThemedText>
+                    {participant.advance_payment > 0 && (
+                      <ThemedText variant="caption" color={theme.success} style={{ marginTop: 2 }}>
+                        提前支付：¥{participant.advance_payment}
+                      </ThemedText>
+                    )}
                   </View>
                 </View>
                 <View style={styles.participantActions}>
+                  <TouchableOpacity onPress={() => {
+                    setSelectedParticipantForAdvance(participant);
+                    setAdvancePaymentAmount(participant.advance_payment > 0 ? String(participant.advance_payment) : '');
+                    setAdvancePaymentModalVisible(true);
+                  }}>
+                    <FontAwesome6 name="coins" size={18} color={theme.primary} />
+                  </TouchableOpacity>
                   {!participant.left_at && (
                     <TouchableOpacity onPress={() => handleLeaveParticipant(participant.id)}>
                       <FontAwesome6 name="right-from-bracket" size={18} color="#F59E0B" />
@@ -512,7 +591,6 @@ export default function DetailPage() {
                 placeholderTextColor={theme.textMuted}
                 value={expenseDescription}
                 onChangeText={setExpenseDescription}
-                autoFocus
               />
 
               <ThemedText variant="body" color={theme.textSecondary} style={styles.inputLabel}>
@@ -534,6 +612,78 @@ export default function DetailPage() {
                 keyboardType="decimal-pad"
               />
 
+              {/* 选择分摊人 */}
+              <ThemedText variant="body" color={theme.textSecondary} style={styles.selectorLabel}>
+                分摊人（点击取消选择）
+              </ThemedText>
+              <View style={styles.participantTags}>
+                {participants.filter(p => !p.left_at).map((participant) => (
+                  <TouchableOpacity
+                    key={participant.id}
+                    style={[
+                      styles.participantTag,
+                      {
+                        backgroundColor: selectedParticipantIds.includes(participant.id) 
+                          ? theme.primary + '20'
+                          : 'transparent',
+                        borderColor: selectedParticipantIds.includes(participant.id)
+                          ? theme.primary
+                          : theme.borderLight,
+                      },
+                    ]}
+                    onPress={() => {
+                      setSelectedParticipantIds(prev => {
+                        if (prev.includes(participant.id)) {
+                          return prev.filter(id => id !== participant.id);
+                        } else {
+                          return [...prev, participant.id];
+                        }
+                      });
+                    }}
+                  >
+                    <ThemedText
+                      variant="body"
+                      color={selectedParticipantIds.includes(participant.id) ? theme.primary : theme.textPrimary}
+                      style={styles.participantTagText}
+                    >
+                      {participant.name}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* 选择支付人 */}
+              <ThemedText variant="body" color={theme.textSecondary} style={styles.selectorLabel}>
+                支付人（单选）
+              </ThemedText>
+              <View style={styles.payerButtons}>
+                {participants.filter(p => !p.left_at).map((participant) => (
+                  <TouchableOpacity
+                    key={participant.id}
+                    style={[
+                      styles.payerButton,
+                      {
+                        backgroundColor: selectedPayerId === participant.id
+                          ? theme.primary
+                          : 'transparent',
+                        borderColor: selectedPayerId === participant.id
+                          ? theme.primary
+                          : theme.borderLight,
+                      },
+                    ]}
+                    onPress={() => setSelectedPayerId(participant.id)}
+                  >
+                    <ThemedText
+                      variant="body"
+                      color={selectedPayerId === participant.id ? theme.buttonPrimaryText : theme.textPrimary}
+                      style={styles.payerButtonText}
+                    >
+                      {participant.name}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={[styles.modalButton, styles.cancelButton]}
@@ -541,6 +691,8 @@ export default function DetailPage() {
                     setExpenseModalVisible(false);
                     setExpenseAmount('');
                     setExpenseDescription('');
+                    setSelectedParticipantIds([]);
+                    setSelectedPayerId(null);
                   }}
                 >
                   <ThemedText variant="body" style={[styles.cancelButtonText, { color: theme.textSecondary }]}>
@@ -619,6 +771,72 @@ export default function DetailPage() {
                 >
                   <ThemedText variant="body" style={[styles.submitButtonText, { color: theme.buttonPrimaryText }]}>
                     确定
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 提前支付 Modal */}
+      <Modal visible={advancePaymentModalVisible} transparent animationType="slide">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalContainer}>
+            <View
+              style={[
+                styles.modalContent,
+                {
+                  backgroundColor: theme.backgroundDefault,
+                },
+              ]}
+            >
+              <ThemedText variant="h3" color={theme.textPrimary} style={styles.modalTitle}>
+                提前支付金额
+              </ThemedText>
+
+              <ThemedText variant="body" color={theme.textSecondary} style={styles.inputLabel}>
+                {selectedParticipantForAdvance?.name}
+              </ThemedText>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: theme.backgroundTertiary,
+                    borderColor: theme.borderLight,
+                    color: theme.textPrimary,
+                  },
+                ]}
+                placeholder="0.00"
+                placeholderTextColor={theme.textMuted}
+                value={advancePaymentAmount}
+                onChangeText={setAdvancePaymentAmount}
+                keyboardType="decimal-pad"
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => {
+                    setAdvancePaymentModalVisible(false);
+                    setAdvancePaymentAmount('');
+                    setSelectedParticipantForAdvance(null);
+                  }}
+                >
+                  <ThemedText variant="body" style={[styles.cancelButtonText, { color: theme.textSecondary }]}>
+                    取消
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.submitButton, { backgroundColor: theme.primary }]}
+                  onPress={handleUpdateAdvancePayment}
+                >
+                  <ThemedText variant="body" style={[styles.submitButtonText, { color: theme.buttonPrimaryText }]}>
+                    保存
                   </ThemedText>
                 </TouchableOpacity>
               </View>
