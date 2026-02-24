@@ -28,7 +28,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
-  const [totalAmount, setTotalAmount] = useState('');
 
   const fetchActivities = useCallback(async () => {
     try {
@@ -64,23 +63,18 @@ export default function HomePage() {
       Alert.alert('提示', '请输入活动名称');
       return;
     }
-    if (!totalAmount.trim() || isNaN(Number(totalAmount)) || Number(totalAmount) <= 0) {
-      Alert.alert('提示', '请输入有效的总金额');
-      return;
-    }
 
     try {
       /**
        * 服务端文件：server/src/routes/activities.ts
        * 接口：POST /api/v1/activities
-       * Body 参数：title: string, totalAmount: number
+       * Body 参数：title: string
        */
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
-          totalAmount: Number(totalAmount),
         }),
       });
 
@@ -89,7 +83,6 @@ export default function HomePage() {
       if (response.ok) {
         setModalVisible(false);
         setTitle('');
-        setTotalAmount('');
         fetchActivities();
       } else {
         Alert.alert('错误', data.error || '创建活动失败');
@@ -268,7 +261,7 @@ export default function HomePage() {
                 backgroundColor: theme.backgroundTertiary,
                 borderRadius: 8,
                 padding: Spacing.md,
-                marginBottom: Spacing.lg,
+                marginBottom: Spacing["2xl"],
                 color: theme.textPrimary,
                 borderWidth: 1,
                 borderColor: theme.borderLight,
@@ -277,26 +270,6 @@ export default function HomePage() {
               placeholderTextColor={theme.textMuted}
               value={title}
               onChangeText={setTitle}
-            />
-
-            <ThemedText variant="body" color={theme.textSecondary} style={{ marginBottom: Spacing.sm }}>
-              总金额
-            </ThemedText>
-            <TextInput
-              style={{
-                backgroundColor: theme.backgroundTertiary,
-                borderRadius: 8,
-                padding: Spacing.md,
-                marginBottom: Spacing["2xl"],
-                color: theme.textPrimary,
-                borderWidth: 1,
-                borderColor: theme.borderLight,
-              }}
-              placeholder="0.00"
-              placeholderTextColor={theme.textMuted}
-              value={totalAmount}
-              onChangeText={setTotalAmount}
-              keyboardType="decimal-pad"
             />
 
             <View style={{ flexDirection: 'row', gap: Spacing.md }}>
@@ -312,7 +285,6 @@ export default function HomePage() {
                 onPress={() => {
                   setModalVisible(false);
                   setTitle('');
-                  setTotalAmount('');
                 }}
               >
                 <ThemedText variant="body" color={theme.textSecondary}>

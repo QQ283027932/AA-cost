@@ -58,9 +58,6 @@ export const createStyles = (theme: Theme) => {
     amountLabel: {
       marginBottom: Spacing.lg,
     },
-    participantsSection: {
-      marginBottom: Spacing.xl,
-    },
     sectionHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -78,6 +75,32 @@ export const createStyles = (theme: Theme) => {
     addButtonText: {
       fontSize: 14,
     },
+    expenseItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: Spacing.md,
+      marginBottom: Spacing.sm,
+      borderRadius: BorderRadius.md,
+    },
+    expenseInfo: {
+      flex: 1,
+      marginRight: Spacing.md,
+    },
+    expenseDescription: {
+      fontSize: 16,
+      marginBottom: Spacing.xs,
+    },
+    expenseDate: {
+      fontSize: 12,
+    },
+    expenseAmount: {
+      fontSize: 18,
+    },
+    expenseActions: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
     participantItem: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -87,9 +110,15 @@ export const createStyles = (theme: Theme) => {
       borderRadius: BorderRadius.md,
     },
     participantInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.md,
+      flex: 1,
+      marginRight: Spacing.md,
+    },
+    participantName: {
+      fontSize: 16,
+      marginBottom: Spacing.xs,
+    },
+    participantTime: {
+      fontSize: 12,
     },
     participantAvatar: {
       width: 40,
@@ -97,24 +126,27 @@ export const createStyles = (theme: Theme) => {
       borderRadius: 20,
       justifyContent: 'center',
       alignItems: 'center',
+      marginRight: Spacing.md,
     },
     participantAvatarText: {
       fontSize: 18,
       color: '#fff',
       fontWeight: 'bold',
     },
-    participantName: {
-      fontSize: 16,
+    participantRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
     },
     participantActions: {
       flexDirection: 'row',
       gap: Spacing.sm,
     },
-    emptyParticipants: {
+    emptyState: {
       padding: Spacing.xl,
       alignItems: 'center',
     },
-    emptyParticipantsText: {
+    emptyText: {
       fontSize: 14,
     },
     modalContainer: {
@@ -138,7 +170,7 @@ export const createStyles = (theme: Theme) => {
       backgroundColor: '#f5f5f5',
       borderRadius: 8,
       padding: Spacing.md,
-      marginBottom: Spacing["2xl"],
+      marginBottom: Spacing.lg,
       borderWidth: 1,
       borderColor: '#e0e0e0',
     },
