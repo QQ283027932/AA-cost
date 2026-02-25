@@ -19,6 +19,10 @@ interface Participant {
   joined_at: string;
   left_at: string | null;
   advance_payment: number;
+  shareTotal?: number;
+  paidTotal?: number;
+  payableAmount?: number;
+  balance?: number;
 }
 
 interface Expense {
@@ -548,27 +552,44 @@ export default function DetailPage() {
                       加入：{formatTime(participant.joined_at)}
                       {participant.left_at && ` | 离开：${formatTime(participant.left_at)}`}
                     </ThemedText>
-                    {participant.advance_payment > 0 && (
-                      <ThemedText variant="caption" color={theme.success} style={{ marginTop: 2 }}>
-                        提前支付：¥{participant.advance_payment}
-                      </ThemedText>
-                    )}
+                    <Text
+                      style={[
+                        styles.participantBalanceText,
+                        participant.balance && participant.balance > 0 ? styles.positiveBalance :
+                        participant.balance && participant.balance < 0 ? styles.negativeBalance :
+                        styles.neutralBalance
+                      ]}
+                    >
+                      {participant.balance ? (
+                        participant.balance > 0 ? `需支付 ¥${participant.balance}` :
+                        participant.balance < 0 ? `需退费 ¥${Math.abs(participant.balance)}` : '已结清'
+                      ) : '未计算'}
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.participantActions}>
-                  <TouchableOpacity onPress={() => {
-                    setSelectedParticipantForAdvance(participant);
-                    setAdvancePaymentAmount(participant.advance_payment > 0 ? String(participant.advance_payment) : '');
-                    setAdvancePaymentModalVisible(true);
-                  }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedParticipantForAdvance(participant);
+                      setAdvancePaymentAmount(participant.advance_payment > 0 ? String(participant.advance_payment) : '');
+                      setAdvancePaymentModalVisible(true);
+                    }}
+                    style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                  >
                     <FontAwesome6 name="coins" size={18} color={theme.primary} />
                   </TouchableOpacity>
                   {!participant.left_at && (
-                    <TouchableOpacity onPress={() => handleLeaveParticipant(participant.id)}>
+                    <TouchableOpacity
+                      onPress={() => handleLeaveParticipant(participant.id)}
+                      style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                    >
                       <FontAwesome6 name="right-from-bracket" size={18} color="#F59E0B" />
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity onPress={() => handleDeleteParticipant(participant.id)}>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteParticipant(participant.id)}
+                    style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                  >
                     <FontAwesome6 name="trash" size={18} color={theme.error} />
                   </TouchableOpacity>
                 </View>

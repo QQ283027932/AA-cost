@@ -414,26 +414,39 @@ export default function HomePage() {
                           ]}
                         >
                           <View style={styles.participantHeader}>
-                            <ThemedText variant="body" color={theme.textPrimary} style={styles.participantName}>
-                              {participant.name}
-                              {participant.left_at && ' (已离开)'}
-                            </ThemedText>
-                          </View>
-                          <View style={styles.participantActions}>
-                            {!participant.left_at && (
+                            <View style={styles.participantNameSection}>
+                              <ThemedText variant="body" color={theme.textPrimary} style={styles.participantName}>
+                                {participant.name}
+                                {participant.left_at && ' (已离开)'}
+                              </ThemedText>
+                              <Text
+                                style={[
+                                  styles.participantBalanceText,
+                                  participant.balance > 0 ? styles.positiveBalance :
+                                  participant.balance < 0 ? styles.negativeBalance :
+                                  styles.neutralBalance
+                                ]}
+                              >
+                                {participant.balance > 0 ? `需支付 ¥${participant.balance}` :
+                                 participant.balance < 0 ? `需退费 ¥${Math.abs(participant.balance)}` : '已结清'}
+                              </Text>
+                            </View>
+                            <View style={styles.participantActions}>
+                              {!participant.left_at && (
+                                <TouchableOpacity
+                                  onPress={() => handleLeaveParticipant(activity.id, participant.id)}
+                                  style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                                >
+                                  <FontAwesome6 name="right-from-bracket" size={16} color="#F59E0B" />
+                                </TouchableOpacity>
+                              )}
                               <TouchableOpacity
-                                onPress={() => handleLeaveParticipant(activity.id, participant.id)}
+                                onPress={() => handleDeleteParticipant(activity.id, participant.id)}
                                 style={{ paddingHorizontal: 8, paddingVertical: 4 }}
                               >
-                                <FontAwesome6 name="right-from-bracket" size={16} color="#F59E0B" />
+                                <FontAwesome6 name="trash" size={16} color={theme.error} />
                               </TouchableOpacity>
-                            )}
-                            <TouchableOpacity
-                              onPress={() => handleDeleteParticipant(activity.id, participant.id)}
-                              style={{ paddingHorizontal: 8, paddingVertical: 4 }}
-                            >
-                              <FontAwesome6 name="trash" size={16} color={theme.error} />
-                            </TouchableOpacity>
+                            </View>
                           </View>
                           <View style={[styles.participantDetails, { borderTopColor: theme.borderLight }]}>
                             <View style={styles.participantDetailItem}>
@@ -443,20 +456,6 @@ export default function HomePage() {
                             <View style={styles.participantDetailItem}>
                               <Text style={styles.participantDetailLabel}>支付总额</Text>
                               <Text style={styles.participantDetailValue}>¥{participant.paidTotal}</Text>
-                            </View>
-                            <View style={styles.participantDetailItem}>
-                              <Text style={styles.participantDetailLabel}>结余</Text>
-                              <Text
-                                style={[
-                                  styles.participantDetailValue,
-                                  participant.balance > 0 ? styles.positiveBalance :
-                                  participant.balance < 0 ? styles.negativeBalance :
-                                  styles.neutralBalance
-                                ]}
-                              >
-                                {participant.balance > 0 ? `¥${participant.balance}` :
-                                 participant.balance < 0 ? `-¥${Math.abs(participant.balance)}` : '¥0'}
-                              </Text>
                             </View>
                           </View>
                         </ThemedView>

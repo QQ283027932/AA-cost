@@ -102,21 +102,30 @@ export const createStyles = (theme: Theme) => {
       borderRadius: BorderRadius.sm,
     },
     participantHeader: {
-      marginBottom: Spacing.xs,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: Spacing.sm,
+    },
+    participantNameSection: {
+      flex: 1,
     },
     participantName: {
       fontSize: 14,
+      marginBottom: 2,
+    },
+    participantBalanceText: {
+      fontSize: 12,
+      fontWeight: '600',
     },
     participantActions: {
       flexDirection: 'row',
-      justifyContent: 'flex-end',
       gap: Spacing.xs,
-      marginTop: Spacing.sm,
     },
     participantDetails: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      paddingTop: Spacing.xs,
+      paddingTop: Spacing.sm,
       borderTopWidth: 1,
     },
     participantDetailItem: {

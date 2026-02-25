@@ -119,6 +119,20 @@ export const createStyles = (theme: Theme) => {
     },
     participantTime: {
       fontSize: 12,
+      marginBottom: 2,
+    },
+    participantBalanceText: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    positiveBalance: {
+      color: '#EF4444',
+    },
+    negativeBalance: {
+      color: '#10B981',
+    },
+    neutralBalance: {
+      color: '#6B7280',
     },
     participantAvatar: {
       width: 40,
@@ -141,6 +155,7 @@ export const createStyles = (theme: Theme) => {
     participantActions: {
       flexDirection: 'row',
       gap: Spacing.sm,
+      marginLeft: Spacing.sm,
     },
     emptyState: {
       padding: Spacing.xl,
