@@ -349,7 +349,7 @@ export default function HomePage() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <ThemedView level="root" style={styles.header}>
           <ThemedText variant="h1" color={theme.textPrimary} style={styles.headerTitle}>
-            今天A了
+            A一下
           </ThemedText>
         </ThemedView>
 
