@@ -69,6 +69,9 @@ export default function DetailPage() {
   const [advancePaymentModalVisible, setAdvancePaymentModalVisible] = useState(false);
   const [selectedParticipantForAdvance, setSelectedParticipantForAdvance] = useState<Participant | null>(null);
   const [advancePaymentAmount, setAdvancePaymentAmount] = useState('');
+  // 记忆上次选择的人员
+  const [lastSelectedPayerId, setLastSelectedPayerId] = useState<string | null>(null);
+  const [lastSelectedParticipantIds, setLastSelectedParticipantIds] = useState<string[]>([]);
 
   const fetchActivityDetail = useCallback(async () => {
     if (!params.id) return;
@@ -150,6 +153,10 @@ export default function DetailPage() {
       const data = await response.json();
 
       if (response.ok) {
+        // 保存当前的选择
+        setLastSelectedPayerId(selectedPayerId);
+        setLastSelectedParticipantIds(selectedParticipantIds);
+
         setExpenseModalVisible(false);
         setExpenseAmount('');
         setExpenseDescription('');
@@ -166,13 +173,26 @@ export default function DetailPage() {
   };
 
   const openExpenseModal = () => {
-    // 默认选中所有未离开的参与者
     const activeParticipants = participants.filter(p => !p.left_at);
-    setSelectedParticipantIds(activeParticipants.map(p => p.id));
-    // 默认支付人为第一个未离开的参与者
-    if (activeParticipants.length > 0) {
+    const activeParticipantIds = activeParticipants.map(p => p.id);
+
+    // 如果有上次的选择，尝试恢复
+    if (lastSelectedPayerId && activeParticipantIds.includes(lastSelectedPayerId)) {
+      setSelectedPayerId(lastSelectedPayerId);
+    } else if (activeParticipants.length > 0) {
+      // 否则默认选中第一个未离开的参与者
       setSelectedPayerId(activeParticipants[0].id);
     }
+
+    // 恢复分摊人的选择（只保留仍然活跃的参与者）
+    const validLastSelectedIds = lastSelectedParticipantIds.filter(id => activeParticipantIds.includes(id));
+    if (validLastSelectedIds.length > 0) {
+      setSelectedParticipantIds(validLastSelectedIds);
+    } else {
+      // 否则默认选中所有未离开的参与者
+      setSelectedParticipantIds(activeParticipantIds);
+    }
+
     setNewParticipantNameInExpense('');
     setExpenseModalVisible(true);
   };

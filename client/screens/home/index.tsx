@@ -434,15 +434,20 @@ export default function HomePage() {
                             <View style={styles.participantActions}>
                               {!participant.left_at && (
                                 <TouchableOpacity
-                                  onPress={() => handleLeaveParticipant(activity.id, participant.id)}
-                                  style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                                  onPress={() => {
+                                    console.log('点击退出按钮', activity.id, participant.id);
+                                    handleLeaveParticipant(activity.id, participant.id);
+                                  }}
+                                  style={styles.participantActionButton}
+                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                 >
                                   <FontAwesome6 name="right-from-bracket" size={16} color="#F59E0B" />
                                 </TouchableOpacity>
                               )}
                               <TouchableOpacity
                                 onPress={() => handleDeleteParticipant(activity.id, participant.id)}
-                                style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                                style={styles.participantActionButton}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                               >
                                 <FontAwesome6 name="trash" size={16} color={theme.error} />
                               </TouchableOpacity>

@@ -109,6 +109,7 @@ export const createStyles = (theme: Theme) => {
     },
     participantNameSection: {
       flex: 1,
+      marginRight: Spacing.md,
     },
     participantName: {
       fontSize: 14,
@@ -120,7 +121,14 @@ export const createStyles = (theme: Theme) => {
     },
     participantActions: {
       flexDirection: 'row',
-      gap: Spacing.xs,
+      gap: Spacing.sm,
+      alignItems: 'center',
+    },
+    participantActionButton: {
+      width: 32,
+      height: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     participantDetails: {
       flexDirection: 'row',
