@@ -147,6 +147,10 @@ export const createStyles = (theme: Theme) => {
       justifyContent: 'center',
       alignItems: 'center',
     },
+    rejoinButton: {
+      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+      borderRadius: 8,
+    },
     participantDetails: {
       flexDirection: 'row',
       justifyContent: 'space-between',

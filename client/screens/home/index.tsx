@@ -492,6 +492,23 @@ export default function HomePage() {
                               </Text>
                             </View>
                             <View style={styles.participantActions}>
+                              {participant.left_at ? (
+                                <TouchableOpacity
+                                  onPress={() => handleToggleParticipantStatus(activity.id, participant.id, participant.left_at)}
+                                  style={[styles.participantActionButton, styles.rejoinButton]}
+                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                >
+                                  <FontAwesome6 name="rotate-left" size={16} color="#10B981" />
+                                </TouchableOpacity>
+                              ) : (
+                                <TouchableOpacity
+                                  onPress={() => handleToggleParticipantStatus(activity.id, participant.id, participant.left_at)}
+                                  style={styles.participantActionButton}
+                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                >
+                                  <FontAwesome6 name="right-from-bracket" size={16} color="#F59E0B" />
+                                </TouchableOpacity>
+                              )}
                               <TouchableOpacity
                                 onPress={() => handleDeleteParticipant(activity.id, participant.id)}
                                 style={styles.participantActionButton}
