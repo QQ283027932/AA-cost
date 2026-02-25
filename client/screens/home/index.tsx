@@ -283,6 +283,42 @@ export default function HomePage() {
     );
   };
 
+  const handleToggleParticipantStatus = async (activityId: string, participantId: string, currentStatus: string | null) => {
+    const isLeaving = currentStatus === null;
+
+    try {
+      /**
+       * 服务端文件：server/src/routes/activities.ts
+       * 接口：PATCH /api/v1/activities/:id/participants/:participantId
+       * Path 参数：id: string, participantId: string
+       * Body 参数：leftAt: string | null
+       */
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${activityId}/participants/${participantId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            leftAt: isLeaving ? new Date().toISOString() : null,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await fetchParticipants(activityId);
+        await fetchActivities();
+        Alert.alert('成功', isLeaving ? '已标记为离开' : '已重新加入');
+      } else {
+        Alert.alert('错误', data.error || '操作失败');
+      }
+    } catch (error) {
+      console.error('Error toggling participant status:', error);
+      Alert.alert('错误', '操作失败');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('zh-CN', {
@@ -425,8 +461,24 @@ export default function HomePage() {
                             <View style={styles.participantNameSection}>
                               <ThemedText variant="body" color={theme.textPrimary} style={styles.participantName}>
                                 {participant.name}
-                                {participant.left_at && ' (已离开)'}
                               </ThemedText>
+                              <TouchableOpacity
+                                style={[
+                                  styles.statusBadge,
+                                  participant.left_at ? styles.statusLeft : styles.statusActive
+                                ]}
+                                onPress={() => handleToggleParticipantStatus(activity.id, participant.id, participant.left_at)}
+                              >
+                                <ThemedText
+                                  variant="caption"
+                                  style={[
+                                    styles.statusText,
+                                    participant.left_at ? { color: theme.textMuted } : { color: '#10B981' }
+                                  ]}
+                                >
+                                  {participant.left_at ? '已离开' : '在活动'}
+                                </ThemedText>
+                              </TouchableOpacity>
                               <Text
                                 style={[
                                   styles.participantBalanceText,
@@ -440,17 +492,6 @@ export default function HomePage() {
                               </Text>
                             </View>
                             <View style={styles.participantActions}>
-                              {!participant.left_at && (
-                                <TouchableOpacity
-                                  onPress={() => {
-                                    handleLeaveParticipant(activity.id, participant.id);
-                                  }}
-                                  style={styles.participantActionButton}
-                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                >
-                                  <FontAwesome6 name="right-from-bracket" size={16} color="#F59E0B" />
-                                </TouchableOpacity>
-                              )}
                               <TouchableOpacity
                                 onPress={() => handleDeleteParticipant(activity.id, participant.id)}
                                 style={styles.participantActionButton}

@@ -113,7 +113,24 @@ export const createStyles = (theme: Theme) => {
     },
     participantName: {
       fontSize: 14,
-      marginBottom: 2,
+      marginBottom: 4,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 4,
+      alignSelf: 'flex-start',
+      marginBottom: 4,
+    },
+    statusActive: {
+      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    },
+    statusLeft: {
+      backgroundColor: 'rgba(107, 114, 128, 0.1)',
+    },
+    statusText: {
+      fontSize: 11,
+      fontWeight: '500',
     },
     participantBalanceText: {
       fontSize: 12,
