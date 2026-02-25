@@ -241,6 +241,7 @@ export default function HomePage() {
           text: '确定',
           style: 'destructive',
           onPress: async () => {
+            console.log('开始更新参与者状态', activityId, participantId);
             try {
               /**
                * 服务端文件：server/src/routes/activities.ts
@@ -259,11 +260,18 @@ export default function HomePage() {
                 }
               );
 
+              console.log('更新参与者响应状态', response.status);
+              const data = await response.json();
+              console.log('更新参与者响应数据', data);
+
               if (response.ok) {
-                fetchParticipants(activityId);
-                fetchActivities();
+                console.log('更新成功，刷新数据');
+                await fetchParticipants(activityId);
+                await fetchActivities();
+                Alert.alert('成功', '已标记为离开');
               } else {
-                Alert.alert('错误', '操作失败');
+                console.error('更新失败', data.error);
+                Alert.alert('错误', data.error || '操作失败');
               }
             } catch (error) {
               console.error('Error updating participant:', error);
@@ -435,7 +443,6 @@ export default function HomePage() {
                               {!participant.left_at && (
                                 <TouchableOpacity
                                   onPress={() => {
-                                    console.log('点击退出按钮', activity.id, participant.id);
                                     handleLeaveParticipant(activity.id, participant.id);
                                   }}
                                   style={styles.participantActionButton}
