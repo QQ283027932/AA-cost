@@ -15,9 +15,6 @@ export const createStyles = (theme: Theme) => {
     headerTitle: {
       marginBottom: Spacing.sm,
     },
-    headerDescription: {
-      marginBottom: Spacing.xl,
-    },
     fab: {
       position: 'absolute',
       bottom: 24,

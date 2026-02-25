@@ -349,10 +349,7 @@ export default function HomePage() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <ThemedView level="root" style={styles.header}>
           <ThemedText variant="h1" color={theme.textPrimary} style={styles.headerTitle}>
-            AA 费用分摊
-          </ThemedText>
-          <ThemedText variant="body" color={theme.textSecondary} style={styles.headerDescription}>
-            精确管理每笔费用，自动计算分摊金额
+            今天A了
           </ThemedText>
         </ThemedView>
 
@@ -363,7 +360,7 @@ export default function HomePage() {
               暂无活动
             </ThemedText>
             <ThemedText variant="body" color={theme.textSecondary} style={styles.emptyDescription}>
-              点击右下角 + 号创建第一个 AA 分摊活动
+              点击右下角 + 号创建第一个活动
             </ThemedText>
           </View>
         ) : (
