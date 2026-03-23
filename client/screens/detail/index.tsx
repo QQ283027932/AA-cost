@@ -19,6 +19,7 @@ interface Participant {
   joined_at: string;
   left_at: string | null;
   advance_payment: number;
+  default_coefficient?: number;
   shareTotal?: number;
   paidTotal?: number;
   payableAmount?: number;
@@ -62,6 +63,8 @@ export default function DetailPage() {
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [selectedPayerId, setSelectedPayerId] = useState<string | null>(null);
   const [newParticipantNameInExpense, setNewParticipantNameInExpense] = useState('');
+  // 参与者系数 { participantId: coefficient }
+  const [participantCoefficients, setParticipantCoefficients] = useState<Record<string, string>>({});
 
   const [participantModalVisible, setParticipantModalVisible] = useState(false);
   const [participantName, setParticipantName] = useState('');
@@ -129,12 +132,18 @@ export default function DetailPage() {
       return;
     }
 
+    // 构建带系数的参与者数组
+    const expenseParticipants = selectedParticipantIds.map(participantId => ({
+      participantId,
+      coefficient: parseFloat(participantCoefficients[participantId] || '1'),
+    }));
+
     try {
       /**
        * 服务端文件：server/src/routes/activities.ts
        * 接口：POST /api/v1/activities/:id/expenses
        * Path 参数：id: string
-       * Body 参数：amount: number, description: string, payerId: string, participantIds: string[]
+       * Body 参数：amount: number, description: string, payerId: string, participants: Array<{participantId: string, coefficient: number}>
        */
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/expenses`,
@@ -145,7 +154,7 @@ export default function DetailPage() {
             amount: Number(expenseAmount),
             description: expenseDescription.trim(),
             payerId: selectedPayerId,
-            participantIds: selectedParticipantIds,
+            participants: expenseParticipants,
           }),
         }
       );
@@ -162,6 +171,7 @@ export default function DetailPage() {
         setExpenseDescription('');
         setSelectedParticipantIds([]);
         setSelectedPayerId(null);
+        setParticipantCoefficients({});
         fetchActivityDetail();
       } else {
         Alert.alert('错误', data.error || '添加费用失败');
@@ -192,6 +202,13 @@ export default function DetailPage() {
       // 否则默认选中所有未离开的参与者
       setSelectedParticipantIds(activeParticipantIds);
     }
+
+    // 初始化参与者系数为他们的默认系数
+    const initialCoefficients: Record<string, string> = {};
+    activeParticipants.forEach(p => {
+      initialCoefficients[p.id] = String(p.default_coefficient || 1);
+    });
+    setParticipantCoefficients(initialCoefficients);
 
     setNewParticipantNameInExpense('');
     setExpenseModalVisible(true);
@@ -714,6 +731,77 @@ export default function DetailPage() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {/* 分摊系数设置 */}
+              {selectedParticipantIds.length > 0 && (
+                <View style={styles.coefficientSection}>
+                  <ThemedText variant="body" color={theme.textSecondary} style={styles.selectorLabel}>
+                    分摊系数（如带孩子可设置大于1的系数）
+                  </ThemedText>
+                  {selectedParticipantIds.map((participantId) => {
+                    const participant = participants.find(p => p.id === participantId);
+                    if (!participant) return null;
+                    return (
+                      <View key={participantId} style={styles.coefficientRow}>
+                        <ThemedText variant="body" color={theme.textPrimary} style={styles.coefficientName}>
+                          {participant.name}
+                        </ThemedText>
+                        <View style={styles.coefficientInputContainer}>
+                          <TouchableOpacity
+                            style={[styles.coefficientButton, { backgroundColor: theme.backgroundTertiary }]}
+                            onPress={() => {
+                              const currentValue = parseFloat(participantCoefficients[participantId] || '1');
+                              const newValue = Math.max(0.5, currentValue - 0.5);
+                              setParticipantCoefficients(prev => ({
+                                ...prev,
+                                [participantId]: String(newValue),
+                              }));
+                            }}
+                          >
+                            <FontAwesome6 name="minus" size={14} color={theme.textPrimary} />
+                          </TouchableOpacity>
+                          <TextInput
+                            style={[
+                              styles.coefficientInput,
+                              {
+                                backgroundColor: theme.backgroundTertiary,
+                                color: theme.textPrimary,
+                              },
+                            ]}
+                            value={participantCoefficients[participantId] || '1'}
+                            onChangeText={(text) => {
+                              setParticipantCoefficients(prev => ({
+                                ...prev,
+                                [participantId]: text,
+                              }));
+                            }}
+                            keyboardType="decimal-pad"
+                            placeholder="1.0"
+                            placeholderTextColor={theme.textMuted}
+                          />
+                          <TouchableOpacity
+                            style={[styles.coefficientButton, { backgroundColor: theme.backgroundTertiary }]}
+                            onPress={() => {
+                              const currentValue = parseFloat(participantCoefficients[participantId] || '1');
+                              const newValue = currentValue + 0.5;
+                              setParticipantCoefficients(prev => ({
+                                ...prev,
+                                [participantId]: String(newValue),
+                              }));
+                            }}
+                          >
+                            <FontAwesome6 name="plus" size={14} color={theme.textPrimary} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+                  {/* 系数说明 */}
+                  <ThemedText variant="caption" color={theme.textMuted} style={styles.coefficientHint}>
+                    系数示例：1人=1，1人+1孩=1.5，1人+2孩=2
+                  </ThemedText>
+                </View>
+              )}
 
               {/* 新建参与者 */}
               <View style={styles.addParticipantRow}>

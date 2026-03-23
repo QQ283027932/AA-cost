@@ -118,11 +118,22 @@ router.get('/:id', async (req, res) => {
       // 获取这些费用的详细信息
       const participantExpenses = expenses?.filter((e: any) => participantExpenseIds.includes(e.id)) || [];
 
-      // 计算分摊总额（平均分摊）
+      // 计算分摊总额（按系数分摊）
       const shareTotal = participantExpenses.reduce((sum: number, e: any) => {
-        // 获取这笔费用有多少人分摊
-        const expenseParticipantCount = expenseParticipants?.filter((ep: any) => ep.expense_id === e.id).length || 1;
-        return sum + Math.floor(e.amount / expenseParticipantCount);
+        // 获取这笔费用的所有参与者及其系数
+        const expenseParticipantsWithCoeff = expenseParticipants?.filter((ep: any) => ep.expense_id === e.id) || [];
+
+        // 计算总系数
+        const totalCoefficient = expenseParticipantsWithCoeff.reduce((total: number, ep: any) => total + (ep.coefficient || 1.0), 0);
+
+        // 获取当前参与者的系数
+        const myCoeff = expenseParticipantsWithCoeff.find((ep: any) => ep.participant_id === participant.id)?.coefficient || 1.0;
+
+        // 按系数计算分摊金额：总金额 * (个人系数 / 总系数)
+        if (totalCoefficient === 0) {
+          return sum + Math.floor(e.amount / expenseParticipantsWithCoeff.length);
+        }
+        return sum + Math.floor(e.amount * myCoeff / totalCoefficient);
       }, 0);
 
       // 计算支付总额（该参与者作为支付人的费用）
@@ -197,7 +208,7 @@ router.post('/', async (req, res) => {
 router.post('/:id/expenses', async (req, res) => {
   try {
     const { id } = req.params;
-    const { amount, description, expenseDate, payerId, participantIds } = req.body;
+    const { amount, description, expenseDate, payerId, participantIds, participants } = req.body;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Amount is required and must be greater than 0' });
@@ -205,8 +216,28 @@ router.post('/:id/expenses', async (req, res) => {
     if (!payerId) {
       return res.status(400).json({ error: 'PayerId is required' });
     }
-    if (!participantIds || participantIds.length === 0) {
-      return res.status(400).json({ error: 'ParticipantIds is required' });
+
+    // 支持两种格式：旧格式 participantIds 数组，新格式 participants 数组（带系数）
+    let expenseParticipants: Array<{ participantId: string; coefficient: number }> = [];
+
+    if (participants && Array.isArray(participants)) {
+      // 新格式：participants 数组，每个元素包含 participantId 和 coefficient
+      expenseParticipants = participants.map((p: any) => ({
+        participantId: p.participantId || p.id,
+        coefficient: p.coefficient || 1.0,
+      }));
+    } else if (participantIds && participantIds.length > 0) {
+      // 旧格式：participantIds 数组，默认系数为 1.0
+      expenseParticipants = participantIds.map((participantId: string) => ({
+        participantId,
+        coefficient: 1.0,
+      }));
+    } else {
+      return res.status(400).json({ error: 'Participants or participantIds is required' });
+    }
+
+    if (expenseParticipants.length === 0) {
+      return res.status(400).json({ error: 'At least one participant is required' });
     }
 
     const client = getSupabaseClient();
@@ -240,10 +271,11 @@ router.post('/:id/expenses', async (req, res) => {
       return res.status(500).json({ error: 'Failed to add expense' });
     }
 
-    // 添加费用分摊关系
-    const participantRelations = participantIds.map((participantId: string) => ({
+    // 添加费用分摊关系（带系数）
+    const participantRelations = expenseParticipants.map((p) => ({
       expense_id: expense.id,
-      participant_id: participantId,
+      participant_id: p.participantId,
+      coefficient: p.coefficient,
     }));
 
     const { error: relationError } = await client
@@ -299,7 +331,7 @@ router.delete('/:id/expenses/:expenseId', async (req, res) => {
 router.post('/:id/participants', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, joinedAt, advancePayment } = req.body;
+    const { name, joinedAt, advancePayment, defaultCoefficient } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
@@ -326,6 +358,7 @@ router.post('/:id/participants', async (req, res) => {
         name,
         joined_at: joinedAt || new Date().toISOString(),
         advance_payment: advancePayment || 0,
+        default_coefficient: defaultCoefficient || 1.0,
       })
       .select()
       .single();
@@ -346,7 +379,7 @@ router.post('/:id/participants', async (req, res) => {
 router.patch('/:id/participants/:participantId', async (req, res) => {
   try {
     const { id, participantId } = req.params;
-    const { leftAt, advancePayment } = req.body;
+    const { leftAt, advancePayment, defaultCoefficient } = req.body;
 
     const client = getSupabaseClient();
 
@@ -356,6 +389,9 @@ router.patch('/:id/participants/:participantId', async (req, res) => {
     }
     if (advancePayment !== undefined) {
       updateData.advance_payment = parseInt(advancePayment);
+    }
+    if (defaultCoefficient !== undefined) {
+      updateData.default_coefficient = parseFloat(defaultCoefficient);
     }
 
     const { data, error } = await client

@@ -285,5 +285,43 @@ export const createStyles = (theme: Theme) => {
     submitButtonText: {
       color: '#fff',
     },
+    coefficientSection: {
+      marginTop: Spacing.md,
+      marginBottom: Spacing.lg,
+    },
+    coefficientRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: Spacing.sm,
+    },
+    coefficientName: {
+      flex: 1,
+      fontSize: 14,
+    },
+    coefficientInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.xs,
+    },
+    coefficientButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    coefficientInput: {
+      width: 60,
+      height: 36,
+      borderRadius: 8,
+      textAlign: 'center',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    coefficientHint: {
+      marginTop: Spacing.xs,
+      fontStyle: 'italic',
+    },
   });
 };
