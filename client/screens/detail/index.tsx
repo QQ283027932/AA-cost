@@ -20,6 +20,7 @@ import {
   createParticipant,
   updateParticipant,
   deleteParticipant,
+  isDatabaseReady,
   Activity,
   Participant,
   Expense,
@@ -63,6 +64,10 @@ export default function DetailPage() {
 
   const fetchActivityDetail = useCallback(async () => {
     if (!params.id) return;
+    if (!isDatabaseReady()) {
+      console.log('Database not ready yet, skipping fetch');
+      return;
+    }
 
     try {
       setLoading(true);

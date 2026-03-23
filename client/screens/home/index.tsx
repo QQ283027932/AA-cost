@@ -21,6 +21,7 @@ import {
   createParticipant,
   updateParticipant,
   deleteParticipant,
+  isDatabaseReady,
 } from '@/services/database';
 
 export default function HomePage() {
@@ -38,6 +39,10 @@ export default function HomePage() {
   const [participantName, setParticipantName] = useState('');
 
   const fetchActivities = useCallback(async () => {
+    if (!isDatabaseReady()) {
+      console.log('Database not ready yet, skipping fetch');
+      return;
+    }
     try {
       setLoading(true);
       const data = await getAllActivities();
