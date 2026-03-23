@@ -14,7 +14,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     "icon": "./assets/images/icon.png",
     "scheme": "aayixia",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
+    "extra": {
+      "eas": {
+        "projectId": "a3f0266d-5393-4e1e-9c38-3688223cd7f9"
+      }
+    },
     "ios": {
       "supportsTablet": true
     },

@@ -94,10 +94,18 @@ export default function HomePage() {
       return;
     }
 
+    // 检查数据库是否就绪
+    if (!isDatabaseReady()) {
+      console.error('[Home] Database not ready when trying to create activity');
+      Alert.alert('错误', '数据库未就绪，请重启应用或检查存储权限');
+      return;
+    }
+
     try {
       console.log('[Home] Creating activity:', title.trim());
+      console.log('[Home] Database ready:', isDatabaseReady());
       const activity = await createActivity(title.trim());
-      console.log('[Home] Activity created:', activity.id);
+      console.log('[Home] Activity created successfully, ID:', activity.id);
       setModalVisible(false);
       setTitle('');
       fetchActivities();
@@ -106,6 +114,7 @@ export default function HomePage() {
       setParticipantModalVisible(true);
     } catch (error) {
       console.error('[Home] Error creating activity:', error);
+      console.error('[Home] Error details:', error instanceof Error ? error.stack : 'No stack');
       Alert.alert('错误', `创建活动失败: ${error instanceof Error ? error.message : String(error)}`);
     }
   };

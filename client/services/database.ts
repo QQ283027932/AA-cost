@@ -387,14 +387,19 @@ let sqliteDb: SQLiteDBType | null = null;
 
 async function initSQLite() {
   console.log('[DB] Starting SQLite initialization...');
-  
+  console.log('[DB] Platform:', Platform.OS, 'Version:', Platform.Version);
+
   try {
+    console.log('[DB] Opening SQLite database: aayixia.db');
     sqliteDb = await SQLite.openDatabaseAsync('aayixia.db');
     console.log('[DB] Database file opened successfully');
+    console.log('[DB] Database connection established');
 
+    console.log('[DB] Creating tables and indexes...');
     await sqliteDb!.execAsync(`
       PRAGMA journal_mode = WAL;
-      
+      PRAGMA foreign_keys = ON;
+
       CREATE TABLE IF NOT EXISTS activities (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
@@ -438,10 +443,19 @@ async function initSQLite() {
       CREATE INDEX IF NOT EXISTS idx_expense_participants_expense ON expense_participants(expense_id);
       CREATE INDEX IF NOT EXISTS idx_expense_participants_participant ON expense_participants(participant_id);
     `);
-    console.log('[DB] Tables created successfully');
+    console.log('[DB] Tables and indexes created successfully');
+
+    // 验证表是否创建成功
+    const tables = await sqliteDb!.getAllAsync<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+    );
+    console.log('[DB] Available tables:', tables.map(t => t.name).join(', '));
+
   } catch (error) {
     console.error('[DB] SQLite initialization error:', error);
-    throw error;
+    console.error('[DB] Error type:', typeof error);
+    console.error('[DB] Error stack:', error instanceof Error ? error.stack : 'No stack');
+    throw new Error(`SQLite初始化失败: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -498,13 +512,23 @@ class SQLiteDatabase {
   }
 
   async createActivity(title: string): Promise<Activity> {
+    console.log('[DB] Creating activity:', title);
     const id = generateId();
     const startDate = new Date().toISOString();
-    await sqliteDb!.runAsync(
-      'INSERT INTO activities (id, title, start_date) VALUES (?, ?, ?)',
-      [id, title, startDate]
-    );
-    return { id, title, start_date: startDate, end_date: null };
+    console.log('[DB] Activity ID:', id, 'Start date:', startDate);
+
+    try {
+      await sqliteDb!.runAsync(
+        'INSERT INTO activities (id, title, start_date) VALUES (?, ?, ?)',
+        [id, title, startDate]
+      );
+      console.log('[DB] Activity inserted successfully');
+      return { id, title, start_date: startDate, end_date: null };
+    } catch (error) {
+      console.error('[DB] Failed to create activity:', error);
+      console.error('[DB] SQL error details:', error instanceof Error ? error.message : String(error));
+      throw new Error(`创建活动失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   async deleteActivity(id: string): Promise<void> {
@@ -729,18 +753,22 @@ export async function initDatabase(): Promise<void> {
   
   initPromise = (async () => {
     try {
+      console.log('[DB] Initializing database, Platform:', Platform.OS);
       if (Platform.OS === 'web') {
+        console.log('[DB] Using MemoryDatabase for web platform');
         dbInstance = new MemoryDatabase();
         await dbInstance.init();
         console.log('Memory database initialized');
       } else {
+        console.log('[DB] Using SQLiteDatabase for mobile platform');
         await initSQLite();
         dbInstance = new SQLiteDatabase();
-        console.log('SQLite database initialized');
+        console.log('[DB] SQLite database initialized successfully');
       }
     } catch (error) {
       initError = error instanceof Error ? error : new Error(String(error));
-      console.error('Database initialization failed:', initError);
+      console.error('[DB] Database initialization failed:', initError);
+      console.error('[DB] Error details:', error);
       throw initError;
     }
   })();
