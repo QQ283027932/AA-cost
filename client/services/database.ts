@@ -708,19 +708,45 @@ class SQLiteDatabase {
 // ==================== 统一导出 ====================
 
 let dbInstance: MemoryDatabase | SQLiteDatabase | null = null;
+let initPromise: Promise<void> | null = null;
+let initError: Error | null = null;
 
 export async function initDatabase(): Promise<void> {
-  if (Platform.OS === 'web') {
-    dbInstance = new MemoryDatabase();
-    await dbInstance.init();
-  } else {
-    await initSQLite();
-    dbInstance = new SQLiteDatabase();
+  // 如果已经初始化过，直接返回
+  if (dbInstance) return;
+  
+  // 如果正在初始化，等待完成
+  if (initPromise) {
+    return initPromise;
   }
+  
+  initPromise = (async () => {
+    try {
+      if (Platform.OS === 'web') {
+        dbInstance = new MemoryDatabase();
+        await dbInstance.init();
+        console.log('Memory database initialized');
+      } else {
+        await initSQLite();
+        dbInstance = new SQLiteDatabase();
+        console.log('SQLite database initialized');
+      }
+    } catch (error) {
+      initError = error instanceof Error ? error : new Error(String(error));
+      console.error('Database initialization failed:', initError);
+      throw initError;
+    }
+  })();
+  
+  return initPromise;
 }
 
 export function isDatabaseReady(): boolean {
   return dbInstance !== null;
+}
+
+export function getInitError(): Error | null {
+  return initError;
 }
 
 export function getAllActivities(): Promise<Activity[]> {

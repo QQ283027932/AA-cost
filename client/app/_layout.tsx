@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { LogBox, View, Text, ActivityIndicator } from 'react-native';
+import { LogBox, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ColorSchemeProvider } from '@/hooks/useColorScheme';
-import { initDatabase } from '@/services/database';
+import { initDatabase, getInitError } from '@/services/database';
 
 LogBox.ignoreLogs([
   "TurboModuleRegistry.getEnforcing(...): 'RNMapsAirModule' could not be found",
@@ -18,32 +18,46 @@ export default function RootLayout() {
   const [dbError, setDbError] = useState<string | null>(null);
 
   useEffect(() => {
-    initDatabase()
-      .then(() => {
-        console.log('Database initialized successfully');
-        setDbReady(true);
-      })
-      .catch((error) => {
+    let mounted = true;
+    
+    const init = async () => {
+      try {
+        await initDatabase();
+        if (mounted) {
+          console.log('Database initialized successfully');
+          setDbReady(true);
+        }
+      } catch (error) {
         console.error('Failed to initialize database:', error);
-        setDbError(error.message || '数据库初始化失败');
-      });
+        if (mounted) {
+          const initErr = getInitError();
+          setDbError(initErr?.message || '数据库初始化失败');
+        }
+      }
+    };
+    
+    init();
+    
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   if (dbError) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={{ color: 'red', fontSize: 16, textAlign: 'center' }}>
-          {dbError}
-        </Text>
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>应用启动失败</Text>
+        <Text style={styles.errorMessage}>{dbError}</Text>
+        <Text style={styles.errorHint}>请尝试重新安装应用</Text>
       </View>
     );
   }
 
   if (!dbReady) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={{ marginTop: 12, color: '#666' }}>加载中...</Text>
+        <Text style={styles.loadingText}>加载中...</Text>
       </View>
     );
   }
@@ -70,3 +84,40 @@ export default function RootLayout() {
     </AuthProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#666',
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#fff',
+  },
+  errorTitle: {
+    color: '#DC2626',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  errorMessage: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  errorHint: {
+    color: '#999',
+    fontSize: 12,
+  },
+});
