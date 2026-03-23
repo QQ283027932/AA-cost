@@ -339,5 +339,55 @@ export const createStyles = (theme: Theme) => {
       marginTop: Spacing.xs,
       fontStyle: 'italic',
     },
+    // 支出明细 Modal 样式
+    detailSummary: {
+      padding: Spacing.md,
+      backgroundColor: '#f8f9fa',
+      borderRadius: 8,
+      marginBottom: Spacing.lg,
+    },
+    detailSummaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: Spacing.xs,
+    },
+    detailSummaryTotal: {
+      borderTopWidth: 1,
+      borderTopColor: '#e0e0e0',
+      marginTop: Spacing.sm,
+      paddingTop: Spacing.sm,
+    },
+    detailListTitle: {
+      marginBottom: Spacing.sm,
+      fontWeight: '600',
+    },
+    detailScrollView: {
+      maxHeight: 300,
+    },
+    detailItem: {
+      padding: Spacing.md,
+      backgroundColor: '#f8f9fa',
+      borderRadius: 8,
+      marginBottom: Spacing.sm,
+    },
+    detailItemHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: Spacing.xs,
+    },
+    detailItemDesc: {
+      fontWeight: '600',
+      flex: 1,
+    },
+    detailItemInfo: {
+      gap: Spacing.xs,
+    },
+    detailItemRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
   });
 };

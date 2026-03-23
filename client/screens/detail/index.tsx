@@ -52,10 +52,19 @@ export default function DetailPage() {
   const [activity, setActivity] = useState<ActivityDetail | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [expenseParticipants, setExpenseParticipants] = useState<Array<{
+    expense_id: string;
+    participant_id: string;
+    coefficient: number;
+  }>>([]);
   const [totalAmount, setTotalAmount] = useState(0);
   const [amountPerPerson, setAmountPerPerson] = useState(0);
   const [currentParticipantsCount, setCurrentParticipantsCount] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // 支出明细 Modal
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedParticipantForDetail, setSelectedParticipantForDetail] = useState<Participant | null>(null);
 
   const [expenseModalVisible, setExpenseModalVisible] = useState(false);
   const [expenseAmount, setExpenseAmount] = useState('');
@@ -95,6 +104,7 @@ export default function DetailPage() {
         setActivity(data.activity);
         setExpenses(data.expenses || []);
         setParticipants(data.participants || []);
+        setExpenseParticipants(data.expenseParticipants || []);
         setTotalAmount(data.totalAmount || 0);
         setAmountPerPerson(data.amountPerPerson || 0);
         setCurrentParticipantsCount(data.currentParticipantsCount || 0);
@@ -576,15 +586,24 @@ export default function DetailPage() {
                   },
                 ]}
               >
-                <View style={styles.participantRow}>
+                <TouchableOpacity 
+                  style={styles.participantRow}
+                  onPress={() => {
+                    setSelectedParticipantForDetail(participant);
+                    setDetailModalVisible(true);
+                  }}
+                >
                   <View style={[styles.participantAvatar, { backgroundColor: getAvatarColor(participant.name) }]}>
                     <Text style={styles.participantAvatarText}>{getAvatarInitial(participant.name)}</Text>
                   </View>
                   <View style={styles.participantInfo}>
-                    <ThemedText variant="body" color={theme.textPrimary} style={styles.participantName}>
-                      {participant.name}
-                      {participant.left_at && ' (已离开)'}
-                    </ThemedText>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <ThemedText variant="body" color={theme.textPrimary} style={styles.participantName}>
+                        {participant.name}
+                        {participant.left_at && ' (已离开)'}
+                      </ThemedText>
+                      <FontAwesome6 name="chevron-right" size={12} color={theme.textMuted} />
+                    </View>
                     <ThemedText variant="caption" color={theme.textMuted} style={styles.participantTime}>
                       加入：{formatTime(participant.joined_at)}
                       {participant.left_at && ` | 离开：${formatTime(participant.left_at)}`}
@@ -603,7 +622,7 @@ export default function DetailPage() {
                       ) : '未计算'}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
                 <View style={styles.participantActions}>
                   <TouchableOpacity
                     onPress={() => {
@@ -1033,6 +1052,165 @@ export default function DetailPage() {
                 >
                   <ThemedText variant="body" style={[styles.submitButtonText, { color: theme.buttonPrimaryText }]}>
                     保存
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 支出明细 Modal */}
+      <Modal visible={detailModalVisible} transparent animationType="slide">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.modalContainer}>
+            <View
+              style={[
+                styles.modalContent,
+                {
+                  backgroundColor: theme.backgroundDefault,
+                },
+              ]}
+            >
+              <View style={styles.modalHeader}>
+                <ThemedText variant="h3" color={theme.textPrimary} style={styles.modalTitle}>
+                  {selectedParticipantForDetail?.name} 的支出明细
+                </ThemedText>
+                <TouchableOpacity 
+                  style={styles.closeButton}
+                  onPress={() => {
+                    setDetailModalVisible(false);
+                    setSelectedParticipantForDetail(null);
+                  }}
+                >
+                  <FontAwesome6 name="xmark" size={20} color={theme.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              {/* 汇总信息 */}
+              {selectedParticipantForDetail && (
+                <View style={styles.detailSummary}>
+                  <View style={styles.detailSummaryRow}>
+                    <ThemedText variant="body" color={theme.textSecondary}>已支付：</ThemedText>
+                    <ThemedText variant="h3" color={theme.primary}>¥{selectedParticipantForDetail.paidTotal || 0}</ThemedText>
+                  </View>
+                  <View style={styles.detailSummaryRow}>
+                    <ThemedText variant="body" color={theme.textSecondary}>应分摊：</ThemedText>
+                    <ThemedText variant="h3" color={theme.textPrimary}>¥{selectedParticipantForDetail.shareTotal || 0}</ThemedText>
+                  </View>
+                  <View style={styles.detailSummaryRow}>
+                    <ThemedText variant="body" color={theme.textSecondary}>预付款：</ThemedText>
+                    <ThemedText variant="body" color={theme.textPrimary}>¥{selectedParticipantForDetail.advance_payment || 0}</ThemedText>
+                  </View>
+                  <View style={[styles.detailSummaryRow, styles.detailSummaryTotal]}>
+                    <ThemedText variant="body" color={theme.textSecondary} style={{ fontWeight: '600' }}>
+                      {selectedParticipantForDetail.balance && selectedParticipantForDetail.balance > 0 ? '需支付' : 
+                       selectedParticipantForDetail.balance && selectedParticipantForDetail.balance < 0 ? '需退费' : '已结清'}：
+                    </ThemedText>
+                    <ThemedText 
+                      variant="h3" 
+                      color={selectedParticipantForDetail.balance && selectedParticipantForDetail.balance > 0 ? theme.error : 
+                             selectedParticipantForDetail.balance && selectedParticipantForDetail.balance < 0 ? '#10B981' : theme.textMuted}
+                    >
+                      ¥{Math.abs(selectedParticipantForDetail.balance || 0)}
+                    </ThemedText>
+                  </View>
+                </View>
+              )}
+
+              {/* 支出明细列表 */}
+              <ThemedText variant="body" color={theme.textSecondary} style={styles.detailListTitle}>
+                支出明细
+              </ThemedText>
+              
+              <ScrollView style={styles.detailScrollView} showsVerticalScrollIndicator={true}>
+                {selectedParticipantForDetail && (() => {
+                  // 获取该参与者参与的所有费用
+                  const participantExpenses = expenseParticipants
+                    .filter(ep => ep.participant_id === selectedParticipantForDetail.id)
+                    .map(ep => {
+                      const expense = expenses.find(e => e.id === ep.expense_id);
+                      if (!expense) return null;
+                      
+                      // 计算该参与者在这笔费用中的分摊金额
+                      const allParticipants = expenseParticipants.filter(e => e.expense_id === ep.expense_id);
+                      const totalCoefficient = allParticipants.reduce((sum, p) => sum + p.coefficient, 0);
+                      const shareAmount = totalCoefficient > 0 ? Math.round(expense.amount * ep.coefficient / totalCoefficient) : 0;
+                      
+                      // 判断是否是支付人
+                      const isPayer = expense.payer_id === selectedParticipantForDetail.id;
+                      
+                      return {
+                        ...expense,
+                        coefficient: ep.coefficient,
+                        shareAmount,
+                        isPayer,
+                        payerName: participants.find(p => p.id === expense.payer_id)?.name || '未知',
+                      };
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => new Date(b!.expense_date).getTime() - new Date(a!.expense_date).getTime());
+
+                  if (participantExpenses.length === 0) {
+                    return (
+                      <View style={styles.emptyState}>
+                        <ThemedText variant="body" color={theme.textMuted}>暂无支出记录</ThemedText>
+                      </View>
+                    );
+                  }
+
+                  return participantExpenses.map((item, index) => item && (
+                    <View key={item.id || index} style={styles.detailItem}>
+                      <View style={styles.detailItemHeader}>
+                        <ThemedText variant="body" color={theme.textPrimary} style={styles.detailItemDesc}>
+                          {item.description || '未命名费用'}
+                        </ThemedText>
+                        <ThemedText variant="caption" color={theme.textMuted}>
+                          {formatTime(item.expense_date)}
+                        </ThemedText>
+                      </View>
+                      <View style={styles.detailItemInfo}>
+                        <View style={styles.detailItemRow}>
+                          <ThemedText variant="caption" color={theme.textSecondary}>
+                            费用总额：¥{item.amount}
+                          </ThemedText>
+                          <ThemedText variant="caption" color={theme.textSecondary}>
+                            系数：{item.coefficient}
+                          </ThemedText>
+                        </View>
+                        <View style={styles.detailItemRow}>
+                          {item.isPayer ? (
+                            <ThemedText variant="caption" color={theme.primary}>
+                              你支付了 ¥{item.amount}
+                            </ThemedText>
+                          ) : (
+                            <ThemedText variant="caption" color={theme.textMuted}>
+                              {item.payerName}支付
+                            </ThemedText>
+                          )}
+                          <ThemedText variant="body" color={theme.primary} style={{ fontWeight: '600' }}>
+                            分摊：¥{item.shareAmount}
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </View>
+                  ));
+                })()}
+              </ScrollView>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.submitButton, { backgroundColor: theme.primary, flex: 1 }]}
+                  onPress={() => {
+                    setDetailModalVisible(false);
+                    setSelectedParticipantForDetail(null);
+                  }}
+                >
+                  <ThemedText variant="body" style={[styles.submitButtonText, { color: theme.buttonPrimaryText }]}>
+                    关闭
                   </ThemedText>
                 </TouchableOpacity>
               </View>
