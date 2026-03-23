@@ -176,6 +176,10 @@ export const createStyles = (theme: Theme) => {
       padding: Spacing.xl,
       maxHeight: '90%',
     },
+    modalScrollContent: {
+      flex: 1,
+      marginBottom: Spacing.md,
+    },
     modalTitle: {
       marginBottom: Spacing.xl,
     },
