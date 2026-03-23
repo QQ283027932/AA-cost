@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, ScrollView, TouchableOpacity, Text, TextInput, Modal, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Text, TextInput, Modal, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
@@ -638,255 +638,266 @@ export default function DetailPage() {
 
       {/* 添加费用 Modal */}
       <Modal visible={expenseModalVisible} transparent animationType="slide">
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={styles.modalContainer}>
-            <View
-              style={[
-                styles.modalContent,
-                {
-                  backgroundColor: theme.backgroundDefault,
-                },
-              ]}
-            >
-              <ThemedText variant="h3" color={theme.textPrimary} style={styles.modalTitle}>
-                添加费用记录
-              </ThemedText>
-
-              <ThemedText variant="body" color={theme.textSecondary} style={styles.inputLabel}>
-                费用描述
-              </ThemedText>
-              <TextInput
+        <TouchableWithoutFeedback onPress={() => {}} disabled={Platform.OS === 'web'}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <View style={styles.modalContainer}>
+              <View
                 style={[
-                  styles.textInput,
+                  styles.modalContent,
                   {
-                    backgroundColor: theme.backgroundTertiary,
-                    borderColor: theme.borderLight,
-                    color: theme.textPrimary,
+                    backgroundColor: theme.backgroundDefault,
                   },
                 ]}
-                placeholder="例如：午餐"
-                placeholderTextColor={theme.textMuted}
-                value={expenseDescription}
-                onChangeText={setExpenseDescription}
-              />
+              >
+                <ThemedText variant="h3" color={theme.textPrimary} style={styles.modalTitle}>
+                  添加费用记录
+                </ThemedText>
 
-              <ThemedText variant="body" color={theme.textSecondary} style={styles.inputLabel}>
-                金额
-              </ThemedText>
-              <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor: theme.backgroundTertiary,
-                    borderColor: theme.borderLight,
-                    color: theme.textPrimary,
-                  },
-                ]}
-                placeholder="0.00"
-                placeholderTextColor={theme.textMuted}
-                value={expenseAmount}
-                onChangeText={setExpenseAmount}
-                keyboardType="decimal-pad"
-              />
-
-              {/* 选择分摊人 */}
-              <ThemedText variant="body" color={theme.textSecondary} style={styles.selectorLabel}>
-                分摊人（点击取消选择）
-              </ThemedText>
-              <View style={styles.participantTags}>
-                {participants.filter(p => !p.left_at).map((participant) => (
-                  <TouchableOpacity
-                    key={participant.id}
+                {/* 可滚动内容区域 */}
+                <ScrollView 
+                  style={styles.modalScrollView}
+                  contentContainerStyle={styles.modalScrollContent}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <ThemedText variant="body" color={theme.textSecondary} style={styles.inputLabel}>
+                    费用描述
+                  </ThemedText>
+                  <TextInput
                     style={[
-                      styles.participantTag,
+                      styles.textInput,
                       {
-                        backgroundColor: selectedParticipantIds.includes(participant.id)
-                          ? theme.primary + '20'
-                          : 'transparent',
-                        borderColor: selectedParticipantIds.includes(participant.id)
-                          ? theme.primary
-                          : theme.borderLight,
+                        backgroundColor: theme.backgroundTertiary,
+                        borderColor: theme.borderLight,
+                        color: theme.textPrimary,
                       },
                     ]}
-                    onPress={() => {
-                      setSelectedParticipantIds(prev => {
-                        if (prev.includes(participant.id)) {
-                          return prev.filter(id => id !== participant.id);
-                        } else {
-                          return [...prev, participant.id];
-                        }
-                      });
-                    }}
-                  >
-                    <ThemedText
-                      variant="body"
-                      color={selectedParticipantIds.includes(participant.id) ? theme.primary : theme.textPrimary}
-                      style={styles.participantTagText}
-                    >
-                      {participant.name}
-                    </ThemedText>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                    placeholder="例如：午餐"
+                    placeholderTextColor={theme.textMuted}
+                    value={expenseDescription}
+                    onChangeText={setExpenseDescription}
+                  />
 
-              {/* 分摊系数设置 */}
-              {selectedParticipantIds.length > 0 && (
-                <View style={styles.coefficientSection}>
-                  <ThemedText variant="body" color={theme.textSecondary} style={styles.selectorLabel}>
-                    分摊系数（如带孩子可设置大于1的系数）
+                  <ThemedText variant="body" color={theme.textSecondary} style={styles.inputLabel}>
+                    金额
                   </ThemedText>
-                  {selectedParticipantIds.map((participantId) => {
-                    const participant = participants.find(p => p.id === participantId);
-                    if (!participant) return null;
-                    return (
-                      <View key={participantId} style={styles.coefficientRow}>
-                        <ThemedText variant="body" color={theme.textPrimary} style={styles.coefficientName}>
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      {
+                        backgroundColor: theme.backgroundTertiary,
+                        borderColor: theme.borderLight,
+                        color: theme.textPrimary,
+                      },
+                    ]}
+                    placeholder="0.00"
+                    placeholderTextColor={theme.textMuted}
+                    value={expenseAmount}
+                    onChangeText={setExpenseAmount}
+                    keyboardType="decimal-pad"
+                  />
+
+                  {/* 选择分摊人 */}
+                  <ThemedText variant="body" color={theme.textSecondary} style={styles.selectorLabel}>
+                    分摊人（点击取消选择）
+                  </ThemedText>
+                  <View style={styles.participantTags}>
+                    {participants.filter(p => !p.left_at).map((participant) => (
+                      <TouchableOpacity
+                        key={participant.id}
+                        style={[
+                          styles.participantTag,
+                          {
+                            backgroundColor: selectedParticipantIds.includes(participant.id)
+                              ? theme.primary + '20'
+                              : 'transparent',
+                            borderColor: selectedParticipantIds.includes(participant.id)
+                              ? theme.primary
+                              : theme.borderLight,
+                          },
+                        ]}
+                        onPress={() => {
+                          setSelectedParticipantIds(prev => {
+                            if (prev.includes(participant.id)) {
+                              return prev.filter(id => id !== participant.id);
+                            } else {
+                              return [...prev, participant.id];
+                            }
+                          });
+                        }}
+                      >
+                        <ThemedText
+                          variant="body"
+                          color={selectedParticipantIds.includes(participant.id) ? theme.primary : theme.textPrimary}
+                          style={styles.participantTagText}
+                        >
                           {participant.name}
                         </ThemedText>
-                        <View style={styles.coefficientInputContainer}>
-                          <TouchableOpacity
-                            style={[styles.coefficientButton, { backgroundColor: theme.backgroundTertiary }]}
-                            onPress={() => {
-                              const currentValue = parseFloat(participantCoefficients[participantId] || '1');
-                              const newValue = Math.max(0.5, currentValue - 0.5);
-                              setParticipantCoefficients(prev => ({
-                                ...prev,
-                                [participantId]: String(newValue),
-                              }));
-                            }}
-                          >
-                            <FontAwesome6 name="minus" size={14} color={theme.textPrimary} />
-                          </TouchableOpacity>
-                          <TextInput
-                            style={[
-                              styles.coefficientInput,
-                              {
-                                backgroundColor: theme.backgroundTertiary,
-                                color: theme.textPrimary,
-                              },
-                            ]}
-                            value={participantCoefficients[participantId] || '1'}
-                            onChangeText={(text) => {
-                              setParticipantCoefficients(prev => ({
-                                ...prev,
-                                [participantId]: text,
-                              }));
-                            }}
-                            keyboardType="decimal-pad"
-                            placeholder="1.0"
-                            placeholderTextColor={theme.textMuted}
-                          />
-                          <TouchableOpacity
-                            style={[styles.coefficientButton, { backgroundColor: theme.backgroundTertiary }]}
-                            onPress={() => {
-                              const currentValue = parseFloat(participantCoefficients[participantId] || '1');
-                              const newValue = currentValue + 0.5;
-                              setParticipantCoefficients(prev => ({
-                                ...prev,
-                                [participantId]: String(newValue),
-                              }));
-                            }}
-                          >
-                            <FontAwesome6 name="plus" size={14} color={theme.textPrimary} />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                  {/* 系数说明 */}
-                  <ThemedText variant="caption" color={theme.textMuted} style={styles.coefficientHint}>
-                    系数示例：1人=1，1人+1孩=1.5，1人+2孩=2
-                  </ThemedText>
-                </View>
-              )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
 
-              {/* 新建参与者 */}
-              <View style={styles.addParticipantRow}>
-                <TextInput
-                  style={[
-                    styles.newParticipantInput,
-                    {
-                      backgroundColor: theme.backgroundTertiary,
-                      borderColor: theme.borderLight,
-                      color: theme.textPrimary,
-                    },
-                  ]}
-                  placeholder="新参与者姓名"
-                  placeholderTextColor={theme.textMuted}
-                  value={newParticipantNameInExpense}
-                  onChangeText={setNewParticipantNameInExpense}
-                />
-                <TouchableOpacity
-                  style={[styles.addParticipantSmallButton, { backgroundColor: theme.primary }]}
-                  onPress={handleAddParticipantInExpense}
-                >
-                  <FontAwesome6 name="plus" size={16} color="#fff" />
-                </TouchableOpacity>
-              </View>
+                  {/* 分摊系数设置 */}
+                  {selectedParticipantIds.length > 0 && (
+                    <View style={styles.coefficientSection}>
+                      <ThemedText variant="body" color={theme.textSecondary} style={styles.selectorLabel}>
+                        分摊系数（如带孩子可设置大于1的系数）
+                      </ThemedText>
+                      {selectedParticipantIds.map((participantId) => {
+                        const participant = participants.find(p => p.id === participantId);
+                        if (!participant) return null;
+                        return (
+                          <View key={participantId} style={styles.coefficientRow}>
+                            <ThemedText variant="body" color={theme.textPrimary} style={styles.coefficientName}>
+                              {participant.name}
+                            </ThemedText>
+                            <View style={styles.coefficientInputContainer}>
+                              <TouchableOpacity
+                                style={[styles.coefficientButton, { backgroundColor: theme.backgroundTertiary }]}
+                                onPress={() => {
+                                  const currentValue = parseFloat(participantCoefficients[participantId] || '1');
+                                  const newValue = Math.max(0.5, currentValue - 0.5);
+                                  setParticipantCoefficients(prev => ({
+                                    ...prev,
+                                    [participantId]: String(newValue),
+                                  }));
+                                }}
+                              >
+                                <FontAwesome6 name="minus" size={14} color={theme.textPrimary} />
+                              </TouchableOpacity>
+                              <TextInput
+                                style={[
+                                  styles.coefficientInput,
+                                  {
+                                    backgroundColor: theme.backgroundTertiary,
+                                    color: theme.textPrimary,
+                                  },
+                                ]}
+                                value={participantCoefficients[participantId] || '1'}
+                                onChangeText={(text) => {
+                                  setParticipantCoefficients(prev => ({
+                                    ...prev,
+                                    [participantId]: text,
+                                  }));
+                                }}
+                                keyboardType="decimal-pad"
+                                placeholder="1.0"
+                                placeholderTextColor={theme.textMuted}
+                              />
+                              <TouchableOpacity
+                                style={[styles.coefficientButton, { backgroundColor: theme.backgroundTertiary }]}
+                                onPress={() => {
+                                  const currentValue = parseFloat(participantCoefficients[participantId] || '1');
+                                  const newValue = currentValue + 0.5;
+                                  setParticipantCoefficients(prev => ({
+                                    ...prev,
+                                    [participantId]: String(newValue),
+                                  }));
+                                }}
+                              >
+                                <FontAwesome6 name="plus" size={14} color={theme.textPrimary} />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        );
+                      })}
+                      {/* 系数说明 */}
+                      <ThemedText variant="caption" color={theme.textMuted} style={styles.coefficientHint}>
+                        系数示例：1人=1，1人+1孩=1.5，1人+2孩=2
+                      </ThemedText>
+                    </View>
+                  )}
 
-              {/* 选择支付人 */}
-              <ThemedText variant="body" color={theme.textSecondary} style={styles.selectorLabel}>
-                支付人（单选）
-              </ThemedText>
-              <View style={styles.payerButtons}>
-                {participants.filter(p => !p.left_at).map((participant) => (
-                  <TouchableOpacity
-                    key={participant.id}
-                    style={[
-                      styles.payerButton,
-                      {
-                        backgroundColor: selectedPayerId === participant.id
-                          ? theme.primary
-                          : 'transparent',
-                        borderColor: selectedPayerId === participant.id
-                          ? theme.primary
-                          : theme.borderLight,
-                      },
-                    ]}
-                    onPress={() => setSelectedPayerId(participant.id)}
-                  >
-                    <ThemedText
-                      variant="body"
-                      color={selectedPayerId === participant.id ? theme.buttonPrimaryText : theme.textPrimary}
-                      style={styles.payerButtonText}
+                  {/* 新建参与者 */}
+                  <View style={styles.addParticipantRow}>
+                    <TextInput
+                      style={[
+                        styles.newParticipantInput,
+                        {
+                          backgroundColor: theme.backgroundTertiary,
+                          borderColor: theme.borderLight,
+                          color: theme.textPrimary,
+                        },
+                      ]}
+                      placeholder="新参与者姓名"
+                      placeholderTextColor={theme.textMuted}
+                      value={newParticipantNameInExpense}
+                      onChangeText={setNewParticipantNameInExpense}
+                    />
+                    <TouchableOpacity
+                      style={[styles.addParticipantSmallButton, { backgroundColor: theme.primary }]}
+                      onPress={handleAddParticipantInExpense}
                     >
-                      {participant.name}
+                      <FontAwesome6 name="plus" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* 选择支付人 */}
+                  <ThemedText variant="body" color={theme.textSecondary} style={styles.selectorLabel}>
+                    支付人（单选）
+                  </ThemedText>
+                  <View style={styles.payerButtons}>
+                    {participants.filter(p => !p.left_at).map((participant) => (
+                      <TouchableOpacity
+                        key={participant.id}
+                        style={[
+                          styles.payerButton,
+                          {
+                            backgroundColor: selectedPayerId === participant.id
+                              ? theme.primary
+                              : 'transparent',
+                            borderColor: selectedPayerId === participant.id
+                              ? theme.primary
+                              : theme.borderLight,
+                          },
+                        ]}
+                        onPress={() => setSelectedPayerId(participant.id)}
+                      >
+                        <ThemedText
+                          variant="body"
+                          color={selectedPayerId === participant.id ? theme.buttonPrimaryText : theme.textPrimary}
+                          style={styles.payerButtonText}
+                        >
+                          {participant.name}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+
+                {/* 固定在底部的按钮 */}
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => {
+                      setExpenseModalVisible(false);
+                      setExpenseAmount('');
+                      setExpenseDescription('');
+                      setSelectedParticipantIds([]);
+                      setSelectedPayerId(null);
+                    }}
+                  >
+                    <ThemedText variant="body" style={[styles.cancelButtonText, { color: theme.textSecondary }]}>
+                      取消
                     </ThemedText>
                   </TouchableOpacity>
-                ))}
-              </View>
 
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    setExpenseModalVisible(false);
-                    setExpenseAmount('');
-                    setExpenseDescription('');
-                    setSelectedParticipantIds([]);
-                    setSelectedPayerId(null);
-                  }}
-                >
-                  <ThemedText variant="body" style={[styles.cancelButtonText, { color: theme.textSecondary }]}>
-                    取消
-                  </ThemedText>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.submitButton, { backgroundColor: theme.primary }]}
-                  onPress={handleAddExpense}
-                >
-                  <ThemedText variant="body" style={[styles.submitButtonText, { color: theme.buttonPrimaryText }]}>
-                    确定
-                  </ThemedText>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.submitButton, { backgroundColor: theme.primary }]}
+                    onPress={handleAddExpense}
+                  >
+                    <ThemedText variant="body" style={[styles.submitButtonText, { color: theme.buttonPrimaryText }]}>
+                      确定
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* 添加参与者 Modal */}

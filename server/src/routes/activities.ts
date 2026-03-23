@@ -289,6 +289,14 @@ router.post('/:id/expenses', async (req, res) => {
       return res.status(500).json({ error: 'Failed to add expense participants' });
     }
 
+    // 更新参与者的默认系数（保存本次使用的系数，下次添加费用时自动继承）
+    for (const p of expenseParticipants) {
+      await client
+        .from('participants')
+        .update({ default_coefficient: p.coefficient })
+        .eq('id', p.participantId);
+    }
+
     res.status(201).json({ expense });
   } catch (error) {
     console.error('Server error:', error);
