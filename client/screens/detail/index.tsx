@@ -640,7 +640,7 @@ export default function DetailPage() {
       <Modal visible={expenseModalVisible} transparent animationType="slide">
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.modalContainer}>
             <View
@@ -651,14 +651,28 @@ export default function DetailPage() {
                 },
               ]}
             >
-              <ThemedText variant="h3" color={theme.textPrimary} style={styles.modalTitle}>
-                添加费用记录
-              </ThemedText>
+              <View style={styles.modalHeader}>
+                <ThemedText variant="h3" color={theme.textPrimary} style={styles.modalTitle}>
+                  添加费用记录
+                </ThemedText>
+                <TouchableOpacity 
+                  style={styles.closeButton}
+                  onPress={() => {
+                    setExpenseModalVisible(false);
+                    setExpenseAmount('');
+                    setExpenseDescription('');
+                    setSelectedParticipantIds([]);
+                    setSelectedPayerId(null);
+                  }}
+                >
+                  <FontAwesome6 name="xmark" size={20} color={theme.textMuted} />
+                </TouchableOpacity>
+              </View>
 
               <ScrollView 
                 style={styles.modalScrollView}
                 contentContainerStyle={styles.modalScrollContent}
-                showsVerticalScrollIndicator={false}
+                showsVerticalScrollIndicator={true}
                 keyboardShouldPersistTaps="handled"
               >
                 <ThemedText variant="body" color={theme.textSecondary} style={styles.inputLabel}>

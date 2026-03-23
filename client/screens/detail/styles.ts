@@ -174,16 +174,26 @@ export const createStyles = (theme: Theme) => {
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       padding: Spacing.xl,
-      maxHeight: '90%',
+      maxHeight: '85%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: Spacing.lg,
+    },
+    closeButton: {
+      padding: Spacing.xs,
     },
     modalScrollView: {
-      flex: 1,
+      maxHeight: 400,
     },
     modalScrollContent: {
-      paddingBottom: Spacing.md,
+      paddingBottom: Spacing.lg,
     },
     modalTitle: {
-      marginBottom: Spacing.xl,
+      marginBottom: 0,
+      flex: 1,
     },
     inputLabel: {
       marginBottom: Spacing.sm,
