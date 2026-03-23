@@ -386,56 +386,63 @@ class MemoryDatabase {
 let sqliteDb: SQLiteDBType | null = null;
 
 async function initSQLite() {
-  sqliteDb = await SQLite.openDatabaseAsync('aayixia.db');
+  console.log('[DB] Starting SQLite initialization...');
+  
+  try {
+    sqliteDb = await SQLite.openDatabaseAsync('aayixia.db');
+    console.log('[DB] Database file opened successfully');
 
-  await sqliteDb!.execAsync(`
-    PRAGMA journal_mode = WAL;
-    
-    CREATE TABLE IF NOT EXISTS activities (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      start_date TEXT NOT NULL,
-      end_date TEXT
-    );
+    await sqliteDb!.execAsync(`
+      PRAGMA journal_mode = WAL;
+      
+      CREATE TABLE IF NOT EXISTS activities (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        start_date TEXT NOT NULL,
+        end_date TEXT
+      );
 
-    CREATE TABLE IF NOT EXISTS participants (
-      id TEXT PRIMARY KEY,
-      activity_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      joined_at TEXT NOT NULL,
-      left_at TEXT,
-      advance_payment INTEGER DEFAULT 0,
-      default_coefficient REAL DEFAULT 1.0,
-      FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
-    );
+      CREATE TABLE IF NOT EXISTS participants (
+        id TEXT PRIMARY KEY,
+        activity_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        joined_at TEXT NOT NULL,
+        left_at TEXT,
+        advance_payment INTEGER DEFAULT 0,
+        default_coefficient REAL DEFAULT 1.0,
+        FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
+      );
 
-    CREATE TABLE IF NOT EXISTS expenses (
-      id TEXT PRIMARY KEY,
-      activity_id TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      description TEXT,
-      expense_date TEXT NOT NULL,
-      payer_id TEXT,
-      FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
-      FOREIGN KEY (payer_id) REFERENCES participants(id) ON DELETE SET NULL
-    );
+      CREATE TABLE IF NOT EXISTS expenses (
+        id TEXT PRIMARY KEY,
+        activity_id TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        description TEXT,
+        expense_date TEXT NOT NULL,
+        payer_id TEXT,
+        FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
+        FOREIGN KEY (payer_id) REFERENCES participants(id) ON DELETE SET NULL
+      );
 
-    CREATE TABLE IF NOT EXISTS expense_participants (
-      id TEXT PRIMARY KEY,
-      expense_id TEXT NOT NULL,
-      participant_id TEXT NOT NULL,
-      coefficient REAL DEFAULT 1.0,
-      FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
-      FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE
-    );
+      CREATE TABLE IF NOT EXISTS expense_participants (
+        id TEXT PRIMARY KEY,
+        expense_id TEXT NOT NULL,
+        participant_id TEXT NOT NULL,
+        coefficient REAL DEFAULT 1.0,
+        FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
+        FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE
+      );
 
-    CREATE INDEX IF NOT EXISTS idx_participants_activity ON participants(activity_id);
-    CREATE INDEX IF NOT EXISTS idx_expenses_activity ON expenses(activity_id);
-    CREATE INDEX IF NOT EXISTS idx_expense_participants_expense ON expense_participants(expense_id);
-    CREATE INDEX IF NOT EXISTS idx_expense_participants_participant ON expense_participants(participant_id);
-  `);
-
-  console.log('SQLite database initialized');
+      CREATE INDEX IF NOT EXISTS idx_participants_activity ON participants(activity_id);
+      CREATE INDEX IF NOT EXISTS idx_expenses_activity ON expenses(activity_id);
+      CREATE INDEX IF NOT EXISTS idx_expense_participants_expense ON expense_participants(expense_id);
+      CREATE INDEX IF NOT EXISTS idx_expense_participants_participant ON expense_participants(participant_id);
+    `);
+    console.log('[DB] Tables created successfully');
+  } catch (error) {
+    console.error('[DB] SQLite initialization error:', error);
+    throw error;
+  }
 }
 
 // SQLite 实现类
@@ -445,7 +452,7 @@ class SQLiteDatabase {
   }
 
   async getAllActivities(): Promise<Activity[]> {
-    const activities = await await sqliteDb!.getAllAsync<Activity>(
+    const activities = await sqliteDb!.getAllAsync<Activity>(
       'SELECT * FROM activities ORDER BY start_date DESC'
     );
 

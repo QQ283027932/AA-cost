@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { LogBox, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { LogBox, View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ColorSchemeProvider } from '@/hooks/useColorScheme';
-import { initDatabase, getInitError } from '@/services/database';
+import { initDatabase, getInitError, isDatabaseReady } from '@/services/database';
 
 LogBox.ignoreLogs([
   "TurboModuleRegistry.getEnforcing(...): 'RNMapsAirModule' could not be found",
@@ -21,17 +21,31 @@ export default function RootLayout() {
     let mounted = true;
     
     const init = async () => {
+      console.log('[App] Starting initialization...');
+      console.log('[App] Platform:', Platform.OS);
+      
       try {
         await initDatabase();
-        if (mounted) {
-          console.log('Database initialized successfully');
+        
+        if (!mounted) return;
+        
+        // 验证数据库真的初始化成功
+        const ready = isDatabaseReady();
+        console.log('[App] Database ready check:', ready);
+        
+        if (ready) {
+          console.log('[App] Database initialized successfully');
           setDbReady(true);
+        } else {
+          const initErr = getInitError();
+          console.error('[App] Database not ready, error:', initErr);
+          setDbError(initErr?.message || '数据库初始化失败');
         }
       } catch (error) {
-        console.error('Failed to initialize database:', error);
+        console.error('[App] Failed to initialize database:', error);
         if (mounted) {
           const initErr = getInitError();
-          setDbError(initErr?.message || '数据库初始化失败');
+          setDbError(initErr?.message || String(error));
         }
       }
     };
@@ -49,6 +63,7 @@ export default function RootLayout() {
         <Text style={styles.errorTitle}>应用启动失败</Text>
         <Text style={styles.errorMessage}>{dbError}</Text>
         <Text style={styles.errorHint}>请尝试重新安装应用</Text>
+        <Text style={styles.errorHint}>平台: {Platform.OS}</Text>
       </View>
     );
   }

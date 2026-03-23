@@ -95,7 +95,9 @@ export default function HomePage() {
     }
 
     try {
+      console.log('[Home] Creating activity:', title.trim());
       const activity = await createActivity(title.trim());
+      console.log('[Home] Activity created:', activity.id);
       setModalVisible(false);
       setTitle('');
       fetchActivities();
@@ -103,8 +105,8 @@ export default function HomePage() {
       setSelectedActivityId(activity.id);
       setParticipantModalVisible(true);
     } catch (error) {
-      console.error('Error creating activity:', error);
-      Alert.alert('错误', '创建活动失败');
+      console.error('[Home] Error creating activity:', error);
+      Alert.alert('错误', `创建活动失败: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
