@@ -1,8 +1,8 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
-const appName = process.env.COZE_PROJECT_NAME || process.env.EXPO_PUBLIC_COZE_PROJECT_NAME || '应用';
+const appName = process.env.COZE_PROJECT_NAME || process.env.EXPO_PUBLIC_COZE_PROJECT_NAME || 'A一下';
 const projectId = process.env.COZE_PROJECT_ID || process.env.EXPO_PUBLIC_COZE_PROJECT_ID;
-const slugAppName = projectId ? `app${projectId}` : 'myapp';
+const slugAppName = projectId ? `app${projectId}` : 'aayixia';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   return {
@@ -12,7 +12,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "aayixia",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -23,7 +23,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": `com.anonymous.x${projectId || '0'}`
+      "package": `com.aayixia.app${projectId || '0'}`
     },
     "web": {
       "bundler": "metro",
@@ -31,12 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      process.env.EXPO_PUBLIC_BACKEND_BASE_URL ? [
-        "expo-router",
-        {
-          "origin": process.env.EXPO_PUBLIC_BACKEND_BASE_URL
-        }
-      ] : 'expo-router',
+      "expo-router",
       [
         "expo-splash-screen",
         {
@@ -46,28 +41,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           "backgroundColor": "#ffffff"
         }
       ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": `允许人数可变App访问您的相册，以便您上传或保存图片。`,
-          "cameraPermission": `允许人数可变App使用您的相机，以便您直接拍摄照片上传。`,
-          "microphonePermission": `允许人数可变App访问您的麦克风，以便您拍摄带有声音的视频。`
-        }
-      ],
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": `人数可变App需要访问您的位置以提供周边服务及导航功能。`
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": `人数可变App需要访问相机以拍摄照片和视频。`,
-          "microphonePermission": `人数可变App需要访问麦克风以录制视频声音。`,
-          "recordAudioAndroid": true
-        }
-      ]
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true

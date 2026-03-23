@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { LogBox } from 'react-native';
+import { LogBox, View, Text, ActivityIndicator } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ColorSchemeProvider } from '@/hooks/useColorScheme';
+import { initDatabase } from '@/services/database';
 
 LogBox.ignoreLogs([
   "TurboModuleRegistry.getEnforcing(...): 'RNMapsAirModule' could not be found",
@@ -13,6 +14,40 @@ LogBox.ignoreLogs([
 ]);
 
 export default function RootLayout() {
+  const [dbReady, setDbReady] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
+
+  useEffect(() => {
+    initDatabase()
+      .then(() => {
+        console.log('Database initialized successfully');
+        setDbReady(true);
+      })
+      .catch((error) => {
+        console.error('Failed to initialize database:', error);
+        setDbError(error.message || '数据库初始化失败');
+      });
+  }, []);
+
+  if (dbError) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ color: 'red', fontSize: 16, textAlign: 'center' }}>
+          {dbError}
+        </Text>
+      </View>
+    );
+  }
+
+  if (!dbReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#4F46E5" />
+        <Text style={{ marginTop: 12, color: '#666' }}>加载中...</Text>
+      </View>
+    );
+  }
+
   return (
     <AuthProvider>
       <ColorSchemeProvider>

@@ -13,35 +13,18 @@ import { ThemedView } from '@/components/ThemedView';
 import { Spacing } from '@/constants/theme';
 import { createStyles } from './styles';
 
-interface Participant {
-  id: string;
-  name: string;
-  joined_at: string;
-  left_at: string | null;
-  advance_payment: number;
-  default_coefficient?: number;
-  shareTotal?: number;
-  paidTotal?: number;
-  payableAmount?: number;
-  balance?: number;
-}
-
-interface Expense {
-  id: string;
-  activity_id: string;
-  amount: number;
-  description: string;
-  expense_date: string;
-  payer_id: string | null;
-  payer_name: string | null;
-}
-
-interface ActivityDetail {
-  id: string;
-  title: string;
-  start_date: string;
-  end_date: string | null;
-}
+import {
+  getActivityDetail,
+  createExpense,
+  deleteExpense,
+  createParticipant,
+  updateParticipant,
+  deleteParticipant,
+  Activity,
+  Participant,
+  Expense,
+  ExpenseParticipant,
+} from '@/services/database';
 
 export default function DetailPage() {
   const { theme, isDark } = useTheme();
@@ -49,20 +32,14 @@ export default function DetailPage() {
   const params = useSafeSearchParams<{ id: string }>();
   const styles = React.useMemo(() => createStyles(theme), [theme]);
 
-  const [activity, setActivity] = useState<ActivityDetail | null>(null);
+  const [activity, setActivity] = useState<Activity | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [expenseParticipants, setExpenseParticipants] = useState<Array<{
-    expense_id: string;
-    participant_id: string;
-    coefficient: number;
-  }>>([]);
+  const [expenseParticipants, setExpenseParticipants] = useState<ExpenseParticipant[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
-  const [amountPerPerson, setAmountPerPerson] = useState(0);
   const [currentParticipantsCount, setCurrentParticipantsCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // 支出明细 Modal
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedParticipantForDetail, setSelectedParticipantForDetail] = useState<Participant | null>(null);
 
@@ -72,7 +49,6 @@ export default function DetailPage() {
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
   const [selectedPayerId, setSelectedPayerId] = useState<string | null>(null);
   const [newParticipantNameInExpense, setNewParticipantNameInExpense] = useState('');
-  // 参与者系数 { participantId: coefficient }
   const [participantCoefficients, setParticipantCoefficients] = useState<Record<string, string>>({});
 
   const [participantModalVisible, setParticipantModalVisible] = useState(false);
@@ -81,7 +57,7 @@ export default function DetailPage() {
   const [advancePaymentModalVisible, setAdvancePaymentModalVisible] = useState(false);
   const [selectedParticipantForAdvance, setSelectedParticipantForAdvance] = useState<Participant | null>(null);
   const [advancePaymentAmount, setAdvancePaymentAmount] = useState('');
-  // 记忆上次选择的人员
+
   const [lastSelectedPayerId, setLastSelectedPayerId] = useState<string | null>(null);
   const [lastSelectedParticipantIds, setLastSelectedParticipantIds] = useState<string[]>([]);
 
@@ -90,29 +66,18 @@ export default function DetailPage() {
 
     try {
       setLoading(true);
-      /**
-       * 服务端文件：server/src/routes/activities.ts
-       * 接口：GET /api/v1/activities/:id
-       * Path 参数：id: string
-       */
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}`
-      );
-      const data = await response.json();
-
-      if (response.ok) {
+      const data = await getActivityDetail(params.id);
+      if (data) {
         setActivity(data.activity);
-        setExpenses(data.expenses || []);
-        setParticipants(data.participants || []);
-        setExpenseParticipants(data.expenseParticipants || []);
-        setTotalAmount(data.totalAmount || 0);
-        setAmountPerPerson(data.amountPerPerson || 0);
-        setCurrentParticipantsCount(data.currentParticipantsCount || 0);
-      } else {
-        console.error('Failed to fetch activity detail:', data.error);
+        setExpenses(data.expenses);
+        setParticipants(data.participants);
+        setExpenseParticipants(data.expenseParticipants);
+        setTotalAmount(data.totalAmount);
+        setCurrentParticipantsCount(data.currentParticipantsCount);
       }
     } catch (error) {
       console.error('Error fetching activity detail:', error);
+      Alert.alert('错误', '获取活动详情失败');
     } finally {
       setLoading(false);
     }
@@ -141,51 +106,31 @@ export default function DetailPage() {
       Alert.alert('提示', '请选择支付人');
       return;
     }
+    if (!params.id) return;
 
-    // 构建带系数的参与者数组
-    const expenseParticipants = selectedParticipantIds.map(participantId => ({
+    const expenseParticipantsData = selectedParticipantIds.map(participantId => ({
       participantId,
       coefficient: parseFloat(participantCoefficients[participantId] || '1'),
     }));
 
     try {
-      /**
-       * 服务端文件：server/src/routes/activities.ts
-       * 接口：POST /api/v1/activities/:id/expenses
-       * Path 参数：id: string
-       * Body 参数：amount: number, description: string, payerId: string, participants: Array<{participantId: string, coefficient: number}>
-       */
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/expenses`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: Number(expenseAmount),
-            description: expenseDescription.trim(),
-            payerId: selectedPayerId,
-            participants: expenseParticipants,
-          }),
-        }
-      );
+      await createExpense(params.id, {
+        amount: Number(expenseAmount),
+        description: expenseDescription.trim(),
+        payerId: selectedPayerId,
+        participants: expenseParticipantsData,
+      });
 
-      const data = await response.json();
+      setLastSelectedPayerId(selectedPayerId);
+      setLastSelectedParticipantIds(selectedParticipantIds);
 
-      if (response.ok) {
-        // 保存当前的选择
-        setLastSelectedPayerId(selectedPayerId);
-        setLastSelectedParticipantIds(selectedParticipantIds);
-
-        setExpenseModalVisible(false);
-        setExpenseAmount('');
-        setExpenseDescription('');
-        setSelectedParticipantIds([]);
-        setSelectedPayerId(null);
-        setParticipantCoefficients({});
-        fetchActivityDetail();
-      } else {
-        Alert.alert('错误', data.error || '添加费用失败');
-      }
+      setExpenseModalVisible(false);
+      setExpenseAmount('');
+      setExpenseDescription('');
+      setSelectedParticipantIds([]);
+      setSelectedPayerId(null);
+      setParticipantCoefficients({});
+      fetchActivityDetail();
     } catch (error) {
       console.error('Error adding expense:', error);
       Alert.alert('错误', '添加费用失败');
@@ -196,24 +141,19 @@ export default function DetailPage() {
     const activeParticipants = participants.filter(p => !p.left_at);
     const activeParticipantIds = activeParticipants.map(p => p.id);
 
-    // 如果有上次的选择，尝试恢复
     if (lastSelectedPayerId && activeParticipantIds.includes(lastSelectedPayerId)) {
       setSelectedPayerId(lastSelectedPayerId);
     } else if (activeParticipants.length > 0) {
-      // 否则默认选中第一个未离开的参与者
       setSelectedPayerId(activeParticipants[0].id);
     }
 
-    // 恢复分摊人的选择（只保留仍然活跃的参与者）
     const validLastSelectedIds = lastSelectedParticipantIds.filter(id => activeParticipantIds.includes(id));
     if (validLastSelectedIds.length > 0) {
       setSelectedParticipantIds(validLastSelectedIds);
     } else {
-      // 否则默认选中所有未离开的参与者
       setSelectedParticipantIds(activeParticipantIds);
     }
 
-    // 初始化参与者系数为他们的默认系数
     const initialCoefficients: Record<string, string> = {};
     activeParticipants.forEach(p => {
       initialCoefficients[p.id] = String(p.default_coefficient || 1);
@@ -229,35 +169,14 @@ export default function DetailPage() {
       Alert.alert('提示', '请输入参与者姓名');
       return;
     }
+    if (!params.id) return;
 
     try {
-      /**
-       * 服务端文件：server/src/routes/activities.ts
-       * 接口：POST /api/v1/activities/:id/participants
-       * Path 参数：id: string
-       * Body 参数：name: string
-       */
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/participants`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: newParticipantNameInExpense.trim() }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // 刷新参与者列表
-        await fetchActivityDetail();
-        // 自动选中新添加的参与者
-        setSelectedParticipantIds(prev => [...prev, data.participant.id]);
-        setNewParticipantNameInExpense('');
-        Alert.alert('成功', `已添加参与者 ${data.participant.name}`);
-      } else {
-        Alert.alert('错误', data.error || '添加参与者失败');
-      }
+      const newParticipant = await createParticipant(params.id, newParticipantNameInExpense.trim());
+      await fetchActivityDetail();
+      setSelectedParticipantIds(prev => [...prev, newParticipant.id]);
+      setNewParticipantNameInExpense('');
+      Alert.alert('成功', `已添加参与者 ${newParticipant.name}`);
     } catch (error) {
       console.error('Error adding participant:', error);
       Alert.alert('错误', '添加参与者失败');
@@ -275,20 +194,9 @@ export default function DetailPage() {
           style: 'destructive',
           onPress: async () => {
             try {
-              /**
-               * 服务端文件：server/src/routes/activities.ts
-               * 接口：DELETE /api/v1/activities/:id/expenses/:expenseId
-               * Path 参数：id: string, expenseId: string
-               */
-              const response = await fetch(
-                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/expenses/${expenseId}`,
-                { method: 'DELETE' }
-              );
-
-              if (response.ok) {
+              if (params.id) {
+                await deleteExpense(params.id, expenseId);
                 fetchActivityDetail();
-              } else {
-                Alert.alert('错误', '删除失败');
               }
             } catch (error) {
               console.error('Error deleting expense:', error);
@@ -305,32 +213,13 @@ export default function DetailPage() {
       Alert.alert('提示', '请输入参与者姓名');
       return;
     }
+    if (!params.id) return;
 
     try {
-      /**
-       * 服务端文件：server/src/routes/activities.ts
-       * 接口：POST /api/v1/activities/:id/participants
-       * Path 参数：id: string
-       * Body 参数：name: string
-       */
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/participants`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: participantName.trim() }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setParticipantModalVisible(false);
-        setParticipantName('');
-        fetchActivityDetail();
-      } else {
-        Alert.alert('错误', data.error || '添加参与者失败');
-      }
+      await createParticipant(params.id, participantName.trim());
+      setParticipantModalVisible(false);
+      setParticipantName('');
+      fetchActivityDetail();
     } catch (error) {
       console.error('Error adding participant:', error);
       Alert.alert('错误', '添加参与者失败');
@@ -338,34 +227,16 @@ export default function DetailPage() {
   };
 
   const handleUpdateAdvancePayment = async () => {
-    if (!selectedParticipantForAdvance) return;
+    if (!selectedParticipantForAdvance || !params.id) return;
 
     try {
-      /**
-       * 服务端文件：server/src/routes/activities.ts
-       * 接口：PATCH /api/v1/activities/:id/participants/:participantId
-       * Path 参数：id: string, participantId: string
-       * Body 参数：advancePayment: number
-       */
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/participants/${selectedParticipantForAdvance.id}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            advancePayment: advancePaymentAmount.trim() ? Number(advancePaymentAmount) : 0,
-          }),
-        }
-      );
-
-      if (response.ok) {
-        setAdvancePaymentModalVisible(false);
-        setAdvancePaymentAmount('');
-        setSelectedParticipantForAdvance(null);
-        fetchActivityDetail();
-      } else {
-        Alert.alert('错误', '更新失败');
-      }
+      await updateParticipant(params.id, selectedParticipantForAdvance.id, {
+        advancePayment: advancePaymentAmount.trim() ? Number(advancePaymentAmount) : 0,
+      });
+      setAdvancePaymentModalVisible(false);
+      setAdvancePaymentAmount('');
+      setSelectedParticipantForAdvance(null);
+      fetchActivityDetail();
     } catch (error) {
       console.error('Error updating advance payment:', error);
       Alert.alert('错误', '更新失败');
@@ -383,27 +254,11 @@ export default function DetailPage() {
           style: 'destructive',
           onPress: async () => {
             try {
-              /**
-               * 服务端文件：server/src/routes/activities.ts
-               * 接口：PATCH /api/v1/activities/:id/participants/:participantId
-               * Path 参数：id: string, participantId: string
-               * Body 参数：leftAt: string
-               */
-              const response = await fetch(
-                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/participants/${participantId}`,
-                {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    leftAt: new Date().toISOString(),
-                  }),
-                }
-              );
-
-              if (response.ok) {
+              if (params.id) {
+                await updateParticipant(params.id, participantId, {
+                  leftAt: new Date().toISOString(),
+                });
                 fetchActivityDetail();
-              } else {
-                Alert.alert('错误', '操作失败');
               }
             } catch (error) {
               console.error('Error updating participant:', error);
@@ -426,20 +281,9 @@ export default function DetailPage() {
           style: 'destructive',
           onPress: async () => {
             try {
-              /**
-               * 服务端文件：server/src/routes/activities.ts
-               * 接口：DELETE /api/v1/activities/:id/participants/:participantId
-               * Path 参数：id: string, participantId: string
-               */
-              const response = await fetch(
-                `${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/activities/${params.id}/participants/${participantId}`,
-                { method: 'DELETE' }
-              );
-
-              if (response.ok) {
+              if (params.id) {
+                await deleteParticipant(params.id, participantId);
                 fetchActivityDetail();
-              } else {
-                Alert.alert('错误', '删除失败');
               }
             } catch (error) {
               console.error('Error deleting participant:', error);
@@ -835,7 +679,6 @@ export default function DetailPage() {
                         </View>
                       );
                     })}
-                    {/* 系数说明 */}
                     <ThemedText variant="caption" color={theme.textMuted} style={styles.coefficientHint}>
                       系数示例：1人=1，1人+1孩=1.5，1人+2孩=2
                     </ThemedText>
@@ -1106,114 +949,65 @@ export default function DetailPage() {
                     <ThemedText variant="body" color={theme.textPrimary}>¥{selectedParticipantForDetail.advance_payment || 0}</ThemedText>
                   </View>
                   <View style={[styles.detailSummaryRow, styles.detailSummaryTotal]}>
-                    <ThemedText variant="body" color={theme.textSecondary} style={{ fontWeight: '600' }}>
-                      {selectedParticipantForDetail.balance && selectedParticipantForDetail.balance > 0 ? '需支付' : 
-                       selectedParticipantForDetail.balance && selectedParticipantForDetail.balance < 0 ? '需退费' : '已结清'}：
-                    </ThemedText>
+                    <ThemedText variant="body" color={theme.textSecondary}>余额：</ThemedText>
                     <ThemedText 
-                      variant="h3" 
-                      color={selectedParticipantForDetail.balance && selectedParticipantForDetail.balance > 0 ? theme.error : 
-                             selectedParticipantForDetail.balance && selectedParticipantForDetail.balance < 0 ? '#10B981' : theme.textMuted}
+                      variant="h2" 
+                      color={selectedParticipantForDetail.balance && selectedParticipantForDetail.balance > 0 
+                        ? theme.error 
+                        : selectedParticipantForDetail.balance && selectedParticipantForDetail.balance < 0 
+                          ? theme.success 
+                          : theme.textMuted
+                      }
                     >
-                      ¥{Math.abs(selectedParticipantForDetail.balance || 0)}
+                      {selectedParticipantForDetail.balance && selectedParticipantForDetail.balance > 0 
+                        ? `需支付 ¥${selectedParticipantForDetail.balance}` 
+                        : selectedParticipantForDetail.balance && selectedParticipantForDetail.balance < 0 
+                          ? `需退费 ¥${Math.abs(selectedParticipantForDetail.balance)}` 
+                          : '已结清'}
                     </ThemedText>
                   </View>
                 </View>
               )}
 
-              {/* 支出明细列表 */}
-              <ThemedText variant="body" color={theme.textSecondary} style={styles.detailListTitle}>
-                支出明细
-              </ThemedText>
-              
-              <ScrollView style={styles.detailScrollView} showsVerticalScrollIndicator={true}>
-                {selectedParticipantForDetail && (() => {
-                  // 获取该参与者参与的所有费用
-                  const participantExpenses = expenseParticipants
-                    .filter(ep => ep.participant_id === selectedParticipantForDetail.id)
-                    .map(ep => {
-                      const expense = expenses.find(e => e.id === ep.expense_id);
-                      if (!expense) return null;
-                      
-                      // 计算该参与者在这笔费用中的分摊金额
-                      const allParticipants = expenseParticipants.filter(e => e.expense_id === ep.expense_id);
-                      const totalCoefficient = allParticipants.reduce((sum, p) => sum + p.coefficient, 0);
-                      const shareAmount = totalCoefficient > 0 ? Math.round(expense.amount * ep.coefficient / totalCoefficient) : 0;
-                      
-                      // 判断是否是支付人
-                      const isPayer = expense.payer_id === selectedParticipantForDetail.id;
-                      
-                      return {
-                        ...expense,
-                        coefficient: ep.coefficient,
-                        shareAmount,
-                        isPayer,
-                        payerName: participants.find(p => p.id === expense.payer_id)?.name || '未知',
-                      };
-                    })
-                    .filter(Boolean)
-                    .sort((a, b) => new Date(b!.expense_date).getTime() - new Date(a!.expense_date).getTime());
-
-                  if (participantExpenses.length === 0) {
-                    return (
-                      <View style={styles.emptyState}>
-                        <ThemedText variant="body" color={theme.textMuted}>暂无支出记录</ThemedText>
-                      </View>
-                    );
-                  }
-
-                  return participantExpenses.map((item, index) => item && (
-                    <View key={item.id || index} style={styles.detailItem}>
-                      <View style={styles.detailItemHeader}>
-                        <ThemedText variant="body" color={theme.textPrimary} style={styles.detailItemDesc}>
-                          {item.description || '未命名费用'}
-                        </ThemedText>
-                        <ThemedText variant="caption" color={theme.textMuted}>
-                          {formatTime(item.expense_date)}
-                        </ThemedText>
-                      </View>
-                      <View style={styles.detailItemInfo}>
-                        <View style={styles.detailItemRow}>
-                          <ThemedText variant="caption" color={theme.textSecondary}>
-                            费用总额：¥{item.amount}
-                          </ThemedText>
-                          <ThemedText variant="caption" color={theme.textSecondary}>
-                            系数：{item.coefficient}
-                          </ThemedText>
-                        </View>
-                        <View style={styles.detailItemRow}>
-                          {item.isPayer ? (
-                            <ThemedText variant="caption" color={theme.primary}>
-                              你支付了 ¥{item.amount}
-                            </ThemedText>
-                          ) : (
-                            <ThemedText variant="caption" color={theme.textMuted}>
-                              {item.payerName}支付
-                            </ThemedText>
-                          )}
-                          <ThemedText variant="body" color={theme.primary} style={{ fontWeight: '600' }}>
-                            分摊：¥{item.shareAmount}
-                          </ThemedText>
-                        </View>
-                      </View>
-                    </View>
-                  ));
-                })()}
-              </ScrollView>
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.submitButton, { backgroundColor: theme.primary, flex: 1 }]}
-                  onPress={() => {
-                    setDetailModalVisible(false);
-                    setSelectedParticipantForDetail(null);
-                  }}
-                >
-                  <ThemedText variant="body" style={[styles.submitButtonText, { color: theme.buttonPrimaryText }]}>
-                    关闭
+              {/* 参与的费用列表 */}
+              {selectedParticipantForDetail && (
+                <>
+                  <ThemedText variant="body" color={theme.textPrimary} style={styles.detailListTitle}>
+                    参与的费用记录
                   </ThemedText>
-                </TouchableOpacity>
-              </View>
+                  <ScrollView style={styles.detailScrollView}>
+                    {expenses
+                      .filter(expense => {
+                        const eps = expenseParticipants.filter(ep => ep.expense_id === expense.id);
+                        return eps.some(ep => ep.participant_id === selectedParticipantForDetail.id);
+                      })
+                      .map(expense => {
+                        const eps = expenseParticipants.filter(ep => ep.expense_id === expense.id);
+                        const myCoeff = eps.find(ep => ep.participant_id === selectedParticipantForDetail.id)?.coefficient || 1;
+                        const totalCoeff = eps.reduce((sum, ep) => sum + (ep.coefficient || 1), 0);
+                        const myShare = totalCoeff > 0 ? Math.floor(expense.amount * myCoeff / totalCoeff) : 0;
+
+                        return (
+                          <View key={expense.id} style={styles.detailItem}>
+                            <View style={styles.detailItemHeader}>
+                              <ThemedText variant="body" color={theme.textPrimary} style={styles.detailItemDesc}>
+                                {expense.description || '未命名费用'}
+                              </ThemedText>
+                              <ThemedText variant="body" color={theme.primary}>
+                                ¥{myShare}
+                              </ThemedText>
+                            </View>
+                            <View style={styles.detailItemInfo}>
+                              <ThemedText variant="caption" color={theme.textMuted}>
+                                总金额: ¥{expense.amount} | 系数: {myCoeff}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        );
+                      })}
+                  </ScrollView>
+                </>
+              )}
             </View>
           </View>
         </KeyboardAvoidingView>
