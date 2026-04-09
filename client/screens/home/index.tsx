@@ -351,13 +351,13 @@ export default function HomePage() {
                               <Text
                                 style={[
                                   styles.participantBalanceText,
-                                  participant.balance && participant.balance > 0 ? styles.positiveBalance :
-                                  participant.balance && participant.balance < 0 ? styles.negativeBalance :
+                                  participant.balance !== undefined && participant.balance > 0 ? styles.positiveBalance :
+                                  participant.balance !== undefined && participant.balance < 0 ? styles.negativeBalance :
                                   styles.neutralBalance
                                 ]}
                               >
-                                {participant.balance && participant.balance > 0 ? `需支付 ¥${participant.balance}` :
-                                 participant.balance && participant.balance < 0 ? `需退费 ¥${Math.abs(participant.balance)}` : '已结清'}
+                                {participant.balance !== undefined && participant.balance > 0 ? `需支付 ¥${participant.balance.toFixed(2)}` :
+                                 participant.balance !== undefined && participant.balance < 0 ? `需退费 ¥${Math.abs(participant.balance).toFixed(2)}` : '已结清'}
                               </Text>
                             </View>
                             <View style={styles.participantActions}>

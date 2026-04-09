@@ -17,6 +17,7 @@ import {
   getActivityDetail,
   createExpense,
   deleteExpense,
+  updateExpense,
   createParticipant,
   updateParticipant,
   deleteParticipant,
@@ -61,6 +62,40 @@ export default function DetailPage() {
 
   const [lastSelectedPayerId, setLastSelectedPayerId] = useState<string | null>(null);
   const [lastSelectedParticipantIds, setLastSelectedParticipantIds] = useState<string[]>([]);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+
+  /**
+   * 格式化余额显示文本
+   */
+  const formatBalanceText = useCallback((balance: number | undefined) => {
+    if (balance === undefined) return '未计算';
+    if (balance > 0) return `需支付 ¥${balance.toFixed(2)}`;
+    if (balance < 0) return `需退费 ¥${Math.abs(balance).toFixed(2)}`;
+    return '已结清';
+  }, []);
+
+  /**
+   * 获取余额显示颜色
+   */
+  const getBalanceColor = useCallback((balance: number | undefined, theme: any) => {
+    if (balance === undefined) return theme.textMuted;
+    if (balance > 0) return theme.error;
+    if (balance < 0) return theme.success;
+    return theme.textMuted;
+  }, []);
+
+  /**
+   * 重置费用 Modal 状态
+   */
+  const resetExpenseModal = useCallback(() => {
+    setExpenseModalVisible(false);
+    setExpenseAmount('');
+    setExpenseDescription('');
+    setSelectedParticipantIds([]);
+    setSelectedPayerId(null);
+    setEditingExpenseId(null);
+    setParticipantCoefficients({});
+  }, []);
 
   const fetchActivityDetail = useCallback(async () => {
     if (!params.id) return;
@@ -94,7 +129,7 @@ export default function DetailPage() {
     }, [fetchActivityDetail])
   );
 
-  const handleAddExpense = async () => {
+  const handleSaveExpense = async () => {
     if (!expenseDescription.trim()) {
       Alert.alert('提示', '请输入费用描述');
       return;
@@ -118,52 +153,83 @@ export default function DetailPage() {
       coefficient: parseFloat(participantCoefficients[participantId] || '1'),
     }));
 
+    const expenseData = {
+      amount: Number(expenseAmount),
+      description: expenseDescription.trim(),
+      payerId: selectedPayerId,
+      participants: expenseParticipantsData,
+    };
+
     try {
-      await createExpense(params.id, {
-        amount: Number(expenseAmount),
-        description: expenseDescription.trim(),
-        payerId: selectedPayerId,
-        participants: expenseParticipantsData,
-      });
+      if (editingExpenseId) {
+        await updateExpense(params.id, editingExpenseId, expenseData);
+      } else {
+        await createExpense(params.id, expenseData);
+        setLastSelectedPayerId(selectedPayerId);
+        setLastSelectedParticipantIds(selectedParticipantIds);
+      }
 
-      setLastSelectedPayerId(selectedPayerId);
-      setLastSelectedParticipantIds(selectedParticipantIds);
-
-      setExpenseModalVisible(false);
-      setExpenseAmount('');
-      setExpenseDescription('');
-      setSelectedParticipantIds([]);
-      setSelectedPayerId(null);
-      setParticipantCoefficients({});
+      resetExpenseModal();
       fetchActivityDetail();
     } catch (error) {
-      console.error('Error adding expense:', error);
-      Alert.alert('错误', '添加费用失败');
+      console.error('Error saving expense:', error);
+      Alert.alert('错误', editingExpenseId ? '修改费用失败' : '添加费用失败');
     }
   };
 
-  const openExpenseModal = () => {
+  const openExpenseModal = (expense?: Expense) => {
     const activeParticipants = participants.filter(p => !p.left_at);
     const activeParticipantIds = activeParticipants.map(p => p.id);
 
-    if (lastSelectedPayerId && activeParticipantIds.includes(lastSelectedPayerId)) {
-      setSelectedPayerId(lastSelectedPayerId);
-    } else if (activeParticipants.length > 0) {
-      setSelectedPayerId(activeParticipants[0].id);
-    }
+    if (expense) {
+      // 编辑模式：填充现有数据
+      setEditingExpenseId(expense.id);
+      setExpenseAmount(String(expense.amount));
+      setExpenseDescription(expense.description || '');
+      setSelectedPayerId(expense.payer_id);
 
-    const validLastSelectedIds = lastSelectedParticipantIds.filter(id => activeParticipantIds.includes(id));
-    if (validLastSelectedIds.length > 0) {
-      setSelectedParticipantIds(validLastSelectedIds);
+      // 获取当前费用的分摊关系
+      const expenseEps = expenseParticipants.filter(ep => ep.expense_id === expense.id);
+      const expenseParticipantIds = expenseEps.map(ep => ep.participant_id);
+      setSelectedParticipantIds(expenseParticipantIds);
+
+      // 填充系数
+      const coefficients: Record<string, string> = {};
+      expenseEps.forEach(ep => {
+        coefficients[ep.participant_id] = String(ep.coefficient || 1);
+      });
+      // 也为其他活跃参与者设置默认系数
+      activeParticipants.forEach(p => {
+        if (!coefficients[p.id]) {
+          coefficients[p.id] = String(p.default_coefficient || 1);
+        }
+      });
+      setParticipantCoefficients(coefficients);
     } else {
-      setSelectedParticipantIds(activeParticipantIds);
-    }
+      // 新增模式
+      setEditingExpenseId(null);
+      setExpenseAmount('');
+      setExpenseDescription('');
 
-    const initialCoefficients: Record<string, string> = {};
-    activeParticipants.forEach(p => {
-      initialCoefficients[p.id] = String(p.default_coefficient || 1);
-    });
-    setParticipantCoefficients(initialCoefficients);
+      if (lastSelectedPayerId && activeParticipantIds.includes(lastSelectedPayerId)) {
+        setSelectedPayerId(lastSelectedPayerId);
+      } else if (activeParticipants.length > 0) {
+        setSelectedPayerId(activeParticipants[0].id);
+      }
+
+      const validLastSelectedIds = lastSelectedParticipantIds.filter(id => activeParticipantIds.includes(id));
+      if (validLastSelectedIds.length > 0) {
+        setSelectedParticipantIds(validLastSelectedIds);
+      } else {
+        setSelectedParticipantIds(activeParticipantIds);
+      }
+
+      const initialCoefficients: Record<string, string> = {};
+      activeParticipants.forEach(p => {
+        initialCoefficients[p.id] = String(p.default_coefficient || 1);
+      });
+      setParticipantCoefficients(initialCoefficients);
+    }
 
     setNewParticipantNameInExpense('');
     setExpenseModalVisible(true);
@@ -359,7 +425,7 @@ export default function DetailPage() {
             <ThemedText variant="h3" color={theme.textPrimary} style={styles.sectionTitle}>
               费用记录
             </ThemedText>
-            <TouchableOpacity style={styles.addButton} onPress={openExpenseModal}>
+            <TouchableOpacity style={styles.addButton} onPress={() => openExpenseModal()}>
               <FontAwesome6 name="plus" size={16} color={theme.primary} />
               <ThemedText style={[styles.addButtonText, { color: theme.primary }]}>添加</ThemedText>
             </TouchableOpacity>
@@ -396,9 +462,20 @@ export default function DetailPage() {
                   <ThemedText variant="h3" color={theme.primary} style={styles.expenseAmount}>
                     ¥{expense.amount}
                   </ThemedText>
-                  <TouchableOpacity onPress={() => handleDeleteExpense(expense.id)}>
-                    <FontAwesome6 name="trash" size={14} color={theme.error} />
-                  </TouchableOpacity>
+                  <View style={styles.expenseActions}>
+                    <TouchableOpacity
+                      style={styles.expenseActionButton}
+                      onPress={() => openExpenseModal(expense)}
+                    >
+                      <FontAwesome6 name="pen-to-square" size={14} color={theme.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.expenseActionButton}
+                      onPress={() => handleDeleteExpense(expense.id)}
+                    >
+                      <FontAwesome6 name="trash" size={14} color={theme.error} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </ThemedView>
             ))
@@ -460,15 +537,12 @@ export default function DetailPage() {
                     <Text
                       style={[
                         styles.participantBalanceText,
-                        participant.balance && participant.balance > 0 ? styles.positiveBalance :
-                        participant.balance && participant.balance < 0 ? styles.negativeBalance :
+                        participant.balance !== undefined && participant.balance > 0 ? styles.positiveBalance :
+                        participant.balance !== undefined && participant.balance < 0 ? styles.negativeBalance :
                         styles.neutralBalance
                       ]}
                     >
-                      {participant.balance ? (
-                        participant.balance > 0 ? `需支付 ¥${participant.balance}` :
-                        participant.balance < 0 ? `需退费 ¥${Math.abs(participant.balance)}` : '已结清'
-                      ) : '未计算'}
+                      {formatBalanceText(participant.balance)}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -521,17 +595,11 @@ export default function DetailPage() {
             >
               <View style={styles.modalHeader}>
                 <ThemedText variant="h3" color={theme.textPrimary} style={styles.modalTitle}>
-                  添加费用记录
+                  {editingExpenseId ? '编辑费用记录' : '添加费用记录'}
                 </ThemedText>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.closeButton}
-                  onPress={() => {
-                    setExpenseModalVisible(false);
-                    setExpenseAmount('');
-                    setExpenseDescription('');
-                    setSelectedParticipantIds([]);
-                    setSelectedPayerId(null);
-                  }}
+                  onPress={resetExpenseModal}
                 >
                   <FontAwesome6 name="xmark" size={20} color={theme.textMuted} />
                 </TouchableOpacity>
@@ -750,13 +818,7 @@ export default function DetailPage() {
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    setExpenseModalVisible(false);
-                    setExpenseAmount('');
-                    setExpenseDescription('');
-                    setSelectedParticipantIds([]);
-                    setSelectedPayerId(null);
-                  }}
+                  onPress={resetExpenseModal}
                 >
                   <ThemedText variant="body" style={[styles.cancelButtonText, { color: theme.textSecondary }]}>
                     取消
@@ -765,7 +827,7 @@ export default function DetailPage() {
 
                 <TouchableOpacity
                   style={[styles.modalButton, styles.submitButton, { backgroundColor: theme.primary }]}
-                  onPress={handleAddExpense}
+                  onPress={handleSaveExpense}
                 >
                   <ThemedText variant="body" style={[styles.submitButtonText, { color: theme.buttonPrimaryText }]}>
                     确定
@@ -943,32 +1005,23 @@ export default function DetailPage() {
                 <View style={styles.detailSummary}>
                   <View style={styles.detailSummaryRow}>
                     <ThemedText variant="body" color={theme.textSecondary}>已支付：</ThemedText>
-                    <ThemedText variant="h3" color={theme.primary}>¥{selectedParticipantForDetail.paidTotal || 0}</ThemedText>
+                    <ThemedText variant="h3" color={theme.primary}>¥{(selectedParticipantForDetail.paidTotal || 0).toFixed(2)}</ThemedText>
                   </View>
                   <View style={styles.detailSummaryRow}>
                     <ThemedText variant="body" color={theme.textSecondary}>应分摊：</ThemedText>
-                    <ThemedText variant="h3" color={theme.textPrimary}>¥{selectedParticipantForDetail.shareTotal || 0}</ThemedText>
+                    <ThemedText variant="h3" color={theme.textPrimary}>¥{(selectedParticipantForDetail.shareTotal || 0).toFixed(2)}</ThemedText>
                   </View>
                   <View style={styles.detailSummaryRow}>
                     <ThemedText variant="body" color={theme.textSecondary}>预付款：</ThemedText>
-                    <ThemedText variant="body" color={theme.textPrimary}>¥{selectedParticipantForDetail.advance_payment || 0}</ThemedText>
+                    <ThemedText variant="body" color={theme.textPrimary}>¥{(selectedParticipantForDetail.advance_payment || 0).toFixed(2)}</ThemedText>
                   </View>
                   <View style={[styles.detailSummaryRow, styles.detailSummaryTotal]}>
                     <ThemedText variant="body" color={theme.textSecondary}>余额：</ThemedText>
-                    <ThemedText 
-                      variant="h2" 
-                      color={selectedParticipantForDetail.balance && selectedParticipantForDetail.balance > 0 
-                        ? theme.error 
-                        : selectedParticipantForDetail.balance && selectedParticipantForDetail.balance < 0 
-                          ? theme.success 
-                          : theme.textMuted
-                      }
+                    <ThemedText
+                      variant="h2"
+                      color={getBalanceColor(selectedParticipantForDetail.balance, theme)}
                     >
-                      {selectedParticipantForDetail.balance && selectedParticipantForDetail.balance > 0 
-                        ? `需支付 ¥${selectedParticipantForDetail.balance}` 
-                        : selectedParticipantForDetail.balance && selectedParticipantForDetail.balance < 0 
-                          ? `需退费 ¥${Math.abs(selectedParticipantForDetail.balance)}` 
-                          : '已结清'}
+                      {formatBalanceText(selectedParticipantForDetail.balance)}
                     </ThemedText>
                   </View>
                 </View>
@@ -990,7 +1043,7 @@ export default function DetailPage() {
                         const eps = expenseParticipants.filter(ep => ep.expense_id === expense.id);
                         const myCoeff = eps.find(ep => ep.participant_id === selectedParticipantForDetail.id)?.coefficient || 1;
                         const totalCoeff = eps.reduce((sum, ep) => sum + (ep.coefficient || 1), 0);
-                        const myShare = totalCoeff > 0 ? Math.floor(expense.amount * myCoeff / totalCoeff) : 0;
+                        const myShare = totalCoeff > 0 ? (Math.round(expense.amount * myCoeff * 100 / totalCoeff) / 100) : 0;
 
                         return (
                           <View key={expense.id} style={styles.detailItem}>
@@ -999,12 +1052,12 @@ export default function DetailPage() {
                                 {expense.description || '未命名费用'}
                               </ThemedText>
                               <ThemedText variant="body" color={theme.primary}>
-                                ¥{myShare}
+                                ¥{myShare.toFixed(2)}
                               </ThemedText>
                             </View>
                             <View style={styles.detailItemInfo}>
                               <ThemedText variant="caption" color={theme.textMuted}>
-                                总金额: ¥{expense.amount} | 系数: {myCoeff}
+                                总金额: ¥{expense.amount.toFixed(2)} | 系数: {myCoeff}
                               </ThemedText>
                             </View>
                           </View>

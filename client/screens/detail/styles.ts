@@ -101,6 +101,9 @@ export const createStyles = (theme: Theme) => {
       flexDirection: 'row',
       gap: Spacing.sm,
     },
+    expenseActionButton: {
+      padding: 4,
+    },
     participantItem: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -126,13 +129,13 @@ export const createStyles = (theme: Theme) => {
       fontWeight: '600',
     },
     positiveBalance: {
-      color: '#EF4444',
+      color: theme.error,
     },
     negativeBalance: {
-      color: '#10B981',
+      color: theme.success,
     },
     neutralBalance: {
-      color: '#6B7280',
+      color: theme.textMuted,
     },
     participantAvatar: {
       width: 40,
@@ -170,7 +173,6 @@ export const createStyles = (theme: Theme) => {
       justifyContent: 'flex-end',
     },
     modalContent: {
-      backgroundColor: '#fff',
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       padding: Spacing.xl,
@@ -199,12 +201,10 @@ export const createStyles = (theme: Theme) => {
       marginBottom: Spacing.sm,
     },
     textInput: {
-      backgroundColor: '#f5f5f5',
       borderRadius: 8,
       padding: Spacing.md,
       marginBottom: Spacing.lg,
       borderWidth: 1,
-      borderColor: '#e0e0e0',
     },
     selectorLabel: {
       marginBottom: Spacing.sm,
@@ -247,11 +247,9 @@ export const createStyles = (theme: Theme) => {
     },
     newParticipantInput: {
       flex: 1,
-      backgroundColor: '#f5f5f5',
       borderRadius: 8,
       padding: Spacing.md,
       borderWidth: 1,
-      borderColor: '#e0e0e0',
       fontSize: 14,
     },
     addParticipantSmallButton: {
@@ -290,17 +288,10 @@ export const createStyles = (theme: Theme) => {
     },
     cancelButton: {
       borderWidth: 1,
-      borderColor: '#e0e0e0',
     },
-    cancelButtonText: {
-      color: '#666',
-    },
-    submitButton: {
-      backgroundColor: '#4F46E5',
-    },
-    submitButtonText: {
-      color: '#fff',
-    },
+    cancelButtonText: {},
+    submitButton: {},
+    submitButtonText: {},
     coefficientSection: {
       marginTop: Spacing.md,
       marginBottom: Spacing.lg,
@@ -339,10 +330,9 @@ export const createStyles = (theme: Theme) => {
       marginTop: Spacing.xs,
       fontStyle: 'italic',
     },
-    // 支出明细 Modal 样式
     detailSummary: {
       padding: Spacing.md,
-      backgroundColor: '#f8f9fa',
+      backgroundColor: theme.backgroundTertiary,
       borderRadius: 8,
       marginBottom: Spacing.lg,
     },
@@ -354,7 +344,7 @@ export const createStyles = (theme: Theme) => {
     },
     detailSummaryTotal: {
       borderTopWidth: 1,
-      borderTopColor: '#e0e0e0',
+      borderTopColor: theme.borderLight,
       marginTop: Spacing.sm,
       paddingTop: Spacing.sm,
     },
@@ -367,7 +357,7 @@ export const createStyles = (theme: Theme) => {
     },
     detailItem: {
       padding: Spacing.md,
-      backgroundColor: '#f8f9fa',
+      backgroundColor: theme.backgroundTertiary,
       borderRadius: 8,
       marginBottom: Spacing.sm,
     },

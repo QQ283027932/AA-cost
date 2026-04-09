@@ -66,6 +66,11 @@ export function generateId(): string {
   });
 }
 
+// 精确到小数点后2位，四舍五入
+export function roundTo2Decimals(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 // ==================== 内存存储实现（Web端）====================
 
 class MemoryDatabase {
@@ -259,6 +264,40 @@ class MemoryDatabase {
     return eps;
   }
 
+  /**
+   * 保存费用分摊关系并更新参与者默认系数（共享逻辑）
+   */
+  private saveExpenseParticipants(expenseId: string, participants: Array<{ participantId: string; coefficient: number }>) {
+    for (const p of participants) {
+      const epId = generateId();
+      this.expenseParticipants.set(epId, {
+        expense_id: expenseId,
+        participant_id: p.participantId,
+        coefficient: p.coefficient,
+      });
+
+      // 更新参与者的默认系数
+      const participant = this.participants.get(p.participantId);
+      if (participant) {
+        participant.default_coefficient = p.coefficient;
+        this.participants.set(p.participantId, participant);
+      }
+    }
+  }
+
+  /**
+   * 删除费用的分摊关系
+   */
+  private deleteExpenseParticipants(expenseId: string) {
+    const epIds: string[] = [];
+    this.expenseParticipants.forEach((ep, key) => {
+      if (ep.expense_id === expenseId) {
+        epIds.push(key);
+      }
+    });
+    epIds.forEach(key => this.expenseParticipants.delete(key));
+  }
+
   async createExpense(
     activityId: string,
     data: {
@@ -279,38 +318,42 @@ class MemoryDatabase {
     };
     this.expenses.set(id, expense);
 
-    // 添加费用分摊关系
-    for (const p of data.participants) {
-      const epId = generateId();
-      this.expenseParticipants.set(epId, {
-        expense_id: id,
-        participant_id: p.participantId,
-        coefficient: p.coefficient,
-      });
-
-      // 更新参与者的默认系数
-      const participant = this.participants.get(p.participantId);
-      if (participant) {
-        participant.default_coefficient = p.coefficient;
-        this.participants.set(p.participantId, participant);
-      }
-    }
+    this.saveExpenseParticipants(id, data.participants);
 
     return expense;
   }
 
   async deleteExpense(activityId: string, expenseId: string): Promise<void> {
-    // 删除相关费用分摊关系
-    const epIds: string[] = [];
-    this.expenseParticipants.forEach((ep, key) => {
-      if (ep.expense_id === expenseId) {
-        epIds.push(key);
-      }
-    });
-    epIds.forEach(key => this.expenseParticipants.delete(key));
-
-    // 删除费用
+    this.deleteExpenseParticipants(expenseId);
     this.expenses.delete(expenseId);
+  }
+
+  async updateExpense(
+    activityId: string,
+    expenseId: string,
+    data: {
+      amount: number;
+      description: string;
+      payerId: string | null;
+      participants: Array<{ participantId: string; coefficient: number }>;
+    }
+  ): Promise<Expense> {
+    const expense = this.expenses.get(expenseId);
+    if (!expense || expense.activity_id !== activityId) {
+      throw new Error('费用记录不存在');
+    }
+
+    // 更新费用基本信息
+    expense.amount = data.amount;
+    expense.description = data.description;
+    expense.payer_id = data.payerId;
+    this.expenses.set(expenseId, expense);
+
+    // 删除旧的分摊关系并添加新的
+    this.deleteExpenseParticipants(expenseId);
+    this.saveExpenseParticipants(expenseId, data.participants);
+
+    return expense;
   }
 
   // 活动详情
@@ -347,9 +390,9 @@ class MemoryDatabase {
         )?.coefficient || 1.0;
 
         if (totalCoefficient === 0) {
-          return sum + Math.floor(e.amount / expenseParticipantsWithCoeff.length);
+          return sum + roundTo2Decimals(e.amount / expenseParticipantsWithCoeff.length);
         }
-        return sum + Math.floor(e.amount * myCoeff / totalCoefficient);
+        return sum + roundTo2Decimals(e.amount * myCoeff / totalCoefficient);
       }, 0);
 
       const paidTotal = expenses
@@ -634,6 +677,23 @@ class SQLiteDatabase {
     );
   }
 
+  /**
+   * 保存费用分摊关系并更新参与者默认系数（共享逻辑）
+   */
+  private async saveExpenseParticipants(expenseId: string, participants: Array<{ participantId: string; coefficient: number }>) {
+    for (const p of participants) {
+      const epId = generateId();
+      await sqliteDb!.runAsync(
+        'INSERT INTO expense_participants (id, expense_id, participant_id, coefficient) VALUES (?, ?, ?, ?)',
+        [epId, expenseId, p.participantId, p.coefficient]
+      );
+      await sqliteDb!.runAsync(
+        'UPDATE participants SET default_coefficient = ? WHERE id = ?',
+        [p.coefficient, p.participantId]
+      );
+    }
+  }
+
   async createExpense(
     activityId: string,
     data: {
@@ -651,17 +711,7 @@ class SQLiteDatabase {
       [id, activityId, data.amount, data.description, expenseDate, data.payerId]
     );
 
-    for (const p of data.participants) {
-      const epId = generateId();
-      await sqliteDb!.runAsync(
-        'INSERT INTO expense_participants (id, expense_id, participant_id, coefficient) VALUES (?, ?, ?, ?)',
-        [epId, id, p.participantId, p.coefficient]
-      );
-      await sqliteDb!.runAsync(
-        'UPDATE participants SET default_coefficient = ? WHERE id = ?',
-        [p.coefficient, p.participantId]
-      );
-    }
+    await this.saveExpenseParticipants(id, data.participants);
 
     return {
       id,
@@ -676,6 +726,38 @@ class SQLiteDatabase {
   async deleteExpense(activityId: string, expenseId: string): Promise<void> {
     await sqliteDb!.runAsync('DELETE FROM expense_participants WHERE expense_id = ?', [expenseId]);
     await sqliteDb!.runAsync('DELETE FROM expenses WHERE id = ? AND activity_id = ?', [expenseId, activityId]);
+  }
+
+  async updateExpense(
+    activityId: string,
+    expenseId: string,
+    data: {
+      amount: number;
+      description: string;
+      payerId: string | null;
+      participants: Array<{ participantId: string; coefficient: number }>;
+    }
+  ): Promise<Expense> {
+    // 更新费用基本信息
+    await sqliteDb!.runAsync(
+      'UPDATE expenses SET amount = ?, description = ?, payer_id = ? WHERE id = ? AND activity_id = ?',
+      [data.amount, data.description, data.payerId, expenseId, activityId]
+    );
+
+    // 删除旧的分摊关系
+    await sqliteDb!.runAsync('DELETE FROM expense_participants WHERE expense_id = ?', [expenseId]);
+
+    // 添加新的分摊关系
+    await this.saveExpenseParticipants(expenseId, data.participants);
+
+    const updatedExpense = await sqliteDb!.getFirstAsync<Expense>(
+      'SELECT * FROM expenses WHERE id = ?',
+      [expenseId]
+    );
+    if (!updatedExpense) {
+      throw new Error('更新后无法找到费用记录');
+    }
+    return updatedExpense;
   }
 
   async getActivityDetail(activityId: string): Promise<ActivityDetailResponse | null> {
@@ -709,9 +791,9 @@ class SQLiteDatabase {
         )?.coefficient || 1.0;
 
         if (totalCoefficient === 0) {
-          return sum + Math.floor(e.amount / expenseParticipantsWithCoeff.length);
+          return sum + roundTo2Decimals(e.amount / expenseParticipantsWithCoeff.length);
         }
-        return sum + Math.floor(e.amount * myCoeff / totalCoefficient);
+        return sum + roundTo2Decimals(e.amount * myCoeff / totalCoefficient);
       }, 0);
 
       const paidTotal = expenses
@@ -854,6 +936,20 @@ export function createExpense(
 export function deleteExpense(activityId: string, expenseId: string): Promise<void> {
   if (!dbInstance) throw new Error('Database not initialized');
   return dbInstance.deleteExpense(activityId, expenseId);
+}
+
+export function updateExpense(
+  activityId: string,
+  expenseId: string,
+  data: {
+    amount: number;
+    description: string;
+    payerId: string | null;
+    participants: Array<{ participantId: string; coefficient: number }>;
+  }
+): Promise<Expense> {
+  if (!dbInstance) throw new Error('Database not initialized');
+  return (dbInstance as any).updateExpense(activityId, expenseId, data);
 }
 
 export function getActivityDetail(activityId: string): Promise<ActivityDetailResponse | null> {
